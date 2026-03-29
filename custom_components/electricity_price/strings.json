@@ -1,0 +1,150 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Configure Electricity Price",
+        "description": "Enter your ENTSO-E API key and select your price area. You can register for a free API key at transparency.entsoe.eu.",
+        "data": {
+          "api_key": "ENTSO-E API Key",
+          "price_area": "Price Area / Bidding Zone"
+        }
+      },
+      "reconfigure": {
+        "title": "Update API Key",
+        "description": "Enter a new ENTSO-E API key.",
+        "data": {
+          "api_key": "ENTSO-E API Key"
+        }
+      }
+    },
+    "error": {
+      "auth_failed": "Invalid API key. Please check your ENTSO-E security token.",
+      "cannot_connect": "Unable to connect to ENTSO-E API. Check your network connection.",
+      "no_data": "No price data available for this area. The key and area may still be valid."
+    },
+    "abort": {
+      "already_configured": "This price area is already configured."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Electricity Price Options",
+        "data": {
+          "vat_percent": "VAT (%)",
+          "transfer_fee": "Transfer fee addition, VAT included (c/kWh)",
+          "num_tiers": "Number of price tiers",
+          "num_programs": "Number of programs"
+        }
+      },
+      "tiers": {
+        "title": "Configure Price Tiers",
+        "description": "Set a name, color, and upper limit for each tier. The last tier is the catch-all and has no upper limit.",
+        "data": {
+          "tier_1_name": "Tier 1 — Name",
+          "tier_1_color": "Tier 1 — Color",
+          "tier_1_below": "Tier 1 — Upper limit (c/kWh)",
+          "tier_2_name": "Tier 2 — Name",
+          "tier_2_color": "Tier 2 — Color",
+          "tier_2_below": "Tier 2 — Upper limit (c/kWh)",
+          "tier_3_name": "Tier 3 — Name",
+          "tier_3_color": "Tier 3 — Color",
+          "tier_3_below": "Tier 3 — Upper limit (c/kWh)",
+          "tier_4_name": "Tier 4 — Name",
+          "tier_4_color": "Tier 4 — Color",
+          "tier_4_below": "Tier 4 — Upper limit (c/kWh)",
+          "tier_5_name": "Tier 5 — Name",
+          "tier_5_color": "Tier 5 — Color"
+        }
+      }
+    },
+    "error": {
+      "invalid_thresholds": "Invalid tier configuration. Make sure all names are filled in and upper limits are in increasing order."
+    }
+  },
+  "services": {
+    "set_transfer_fee": {
+      "name": "Set transfer fee",
+      "description": "Update the transfer fee addition applied to electricity prices.",
+      "fields": {
+        "device_id": {
+          "name": "Device",
+          "description": "The electricity price device to update."
+        },
+        "transfer_fee": {
+          "name": "Transfer fee",
+          "description": "The transfer fee to add to each price slot (c/kWh). Enter the VAT-inclusive value."
+        }
+      }
+    },
+    "set_vat": {
+      "name": "Set VAT",
+      "description": "Update the VAT percentage applied to electricity prices.",
+      "fields": {
+        "device_id": {
+          "name": "Device",
+          "description": "The electricity price device to update."
+        },
+        "vat_percent": {
+          "name": "VAT percentage",
+          "description": "The VAT percentage to apply (0–100)."
+        }
+      }
+    }
+  },
+  "device_automation": {
+    "trigger_type": {
+      "optimal_start": "Optimal start time",
+      "price_level_change": "Price level changes",
+      "price_below": "Price drops below threshold",
+      "price_above": "Price rises above threshold",
+      "tomorrow_available": "Tomorrow's prices available"
+    },
+    "extra_fields": {
+      "duration": "Duration (hours)",
+      "window_start": "Allowed window — start time",
+      "window_end": "Allowed window — end time",
+      "threshold": "Price threshold (c/kWh)"
+    }
+  },
+  "entity": {
+    "sensor": {
+      "current_price": {
+        "name": "Current Price"
+      },
+      "next_hour_price": {
+        "name": "Next Hour Price"
+      },
+      "today_min": {
+        "name": "Today Min"
+      },
+      "today_max": {
+        "name": "Today Max"
+      },
+      "today_average": {
+        "name": "Today Average"
+      },
+      "tomorrow_min": {
+        "name": "Tomorrow Min"
+      },
+      "tomorrow_max": {
+        "name": "Tomorrow Max"
+      },
+      "tomorrow_average": {
+        "name": "Tomorrow Average"
+      },
+      "price_level": {
+        "name": "Price Level"
+      },
+      "cheapest_time": {
+        "name": "Cheapest Time Today"
+      },
+      "vat": {
+        "name": "VAT"
+      },
+      "transfer_fee": {
+        "name": "Transfer Fee"
+      }
+    }
+  }
+}
