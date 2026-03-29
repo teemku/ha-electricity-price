@@ -1,0 +1,45 @@
+set_transfer_fee:
+  name: Set transfer fee
+  description: Update the transfer fee addition applied to electricity prices. Takes effect immediately without restarting the integration.
+  fields:
+    device_id:
+      name: Device
+      description: The electricity price device to update. Leave empty to update all configured devices.
+      required: true
+      selector:
+        device:
+          integration: electricity_price
+    transfer_fee:
+      name: Transfer fee
+      description: The transfer fee to add to each price slot (c/kWh). Enter the VAT-inclusive value. Can be negative.
+      required: true
+      selector:
+        number:
+          min: -100
+          max: 100
+          step: 0.01
+          unit_of_measurement: "c/kWh"
+          mode: box
+
+set_vat:
+  name: Set VAT
+  description: Update the VAT percentage applied to electricity prices. Takes effect immediately without restarting the integration.
+  fields:
+    device_id:
+      name: Device
+      description: The electricity price device to update. Leave empty to update all configured devices.
+      required: true
+      selector:
+        device:
+          integration: electricity_price
+    vat_percent:
+      name: VAT percentage
+      description: The VAT percentage to apply (0–100).
+      required: true
+      selector:
+        number:
+          min: 0
+          max: 100
+          step: 0.1
+          unit_of_measurement: "%"
+          mode: box
