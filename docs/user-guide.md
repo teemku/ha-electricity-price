@@ -1,0 +1,196 @@
+# User Guide
+
+## Table of contents
+
+1. [Getting an ENTSO-E API key](#getting-an-entso-e-api-key)
+2. [Installation](#installation)
+3. [Setting up the integration](#setting-up-the-integration)
+4. [Configuring options](#configuring-options)
+5. [Dashboard card](#dashboard-card)
+6. [Automation triggers](#automation-triggers)
+7. [Services](#services)
+8. [Troubleshooting](#troubleshooting)
+
+---
+
+## Getting an ENTSO-E API key
+
+1. Register a free account at [transparency.entsoe.eu](https://transparency.entsoe.eu/usrm/user/createPublicUser).
+2. After logging in, go to **My Account Settings → Web API Security Token**.
+3. Click **Generate a new token** and copy the token — you will need it during integration setup.
+
+The token gives read access to day-ahead price data. There is no usage cost.
+
+---
+
+## Installation
+
+1. Download or clone this repository.
+2. Copy the `custom_components/electricity_price/` folder into your Home Assistant configuration directory under `custom_components/`:
+   ```
+   config/
+   └── custom_components/
+       └── electricity_price/
+           ├── __init__.py
+           ├── manifest.json
+           └── ...
+   ```
+3. Restart Home Assistant.
+
+---
+
+## Setting up the integration
+
+1. Go to **Settings → Devices & Services → Add Integration**.
+2. Search for **Electricity Price** and select it.
+3. Enter your ENTSO-E API key and choose your price area (bidding zone).
+4. Click **Submit**. The integration validates the API key and creates the device.
+
+Each price area is set up as a separate device, so you can add multiple integrations if you need prices for more than one area.
+
+---
+
+## Configuring options
+
+Open **Settings → Devices & Services**, find the Electricity Price integration, and click **Configure**.
+
+### Step 1 — Pricing
+
+| Field | Description |
+|---|---|
+| VAT % | Value-added tax percentage applied to the base price. Set to 0 if your prices already include VAT or if VAT does not apply. |
+| Transfer fee (c/kWh) | Fixed network transfer fee added to every price slot. |
+| Number of tiers | How many price tiers to define (2–5). |
+
+### Step 2 — Price tiers
+
+Each tier has a name, a colour, and (except the last) an upper price limit.
+
+| Field | Description |
+|---|---|
+| Name | Displayed in the *Price level* sensor and on the card (e.g. *Cheap*). |
+| Colour | Hex colour used in the dashboard card bars. |
+| Upper limit (c/kWh) | Prices below this value fall into this tier. Leave blank for the last tier — it catches everything above the previous limit. |
+
+**Example — three tiers:**
+
+| Tier | Colour | Upper limit |
+|---|---|---|
+| Cheap | `#22c55e` (green) | 5.0 c/kWh |
+| Normal | `#f59e0b` (amber) | 12.0 c/kWh |
+| Expensive | `#ef4444` (red) | *(none)* |
+
+---
+
+## Dashboard card
+
+The Electricity Price card renders a 24-bar chart of hourly prices for today or tomorrow, colour-coded by tier.
+
+### Adding the card
+
+1. Open a dashboard in edit mode.
+2. Click **Add card** and choose **Custom: Electricity Price Card** (it appears in the list automatically).
+3. The visual editor opens — select your device, day, and an optional title.
+
+### Card options
+
+| Option | Description |
+|---|---|
+| Device | The Electricity Price device to display. |
+| Day | *Today* or *Tomorrow*. Tomorrow's bars appear once prices are published (~13:00–15:00 CET). |
+| Title | Optional heading shown above the chart. |
+
+The card highlights the current hour with a brighter bar and shows the price value on each bar.
+
+---
+
+## Automation triggers
+
+The integration registers device triggers that appear in the automation editor under **Device → \<your device\> → \<trigger type\>**.
+
+### Price level changed
+
+Fires whenever the current price moves from one tier to another (e.g. from *Normal* to *Cheap*). No extra configuration needed.
+
+**Example use:** Turn on a water heater when electricity becomes cheap.
+
+### Price below / above threshold
+
+Fires when the current price crosses a fixed threshold (c/kWh).
+
+| Field | Description |
+|---|---|
+| Threshold | The price value to watch. |
+
+**Example use:** Send a notification when the price exceeds 20 c/kWh.
+
+### Tomorrow prices available
+
+Fires once per day when tomorrow's complete price data has been fetched from ENTSO-E (typically between 13:00 and 15:00 CET).
+
+**Example use:** Recalculate a scheduled programme once tomorrow's prices are known.
+
+### Optimal start
+
+Fires at the beginning of the cheapest contiguous time window of a given duration. Optionally restricts the search to a time window.
+
+| Field | Description |
+|---|---|
+| Duration (hours) | Length of the programme to schedule (e.g. `2` for a two-hour window). |
+| Window start | Earliest allowed start time (optional, e.g. `06:00`). |
+| Window end | Latest allowed end time (optional, e.g. `22:00`). |
+
+**Example use:** Start a dishwasher at the cheapest two-hour window between 22:00 and 07:00.
+
+---
+
+## Services
+
+Both services update the integration's pricing in real time — no reload or restart required.
+
+### `electricity_price.set_vat`
+
+Updates the VAT percentage for a device.
+
+```yaml
+service: electricity_price.set_vat
+data:
+  device_id: <your device id>
+  vat_percent: 25.5
+```
+
+### `electricity_price.set_transfer_fee`
+
+Updates the transfer fee for a device.
+
+```yaml
+service: electricity_price.set_transfer_fee
+data:
+  device_id: <your device id>
+  transfer_fee: 3.72
+```
+
+The `device_id` can be found in **Settings → Devices & Services → \<your device\> → Device info**.
+
+---
+
+## Troubleshooting
+
+### Sensors show *Unavailable*
+
+The coordinator failed to fetch today's prices. Check:
+- Your ENTSO-E API key is correct. Try reconfiguring the integration (**⋮ → Reconfigure**).
+- Home Assistant has outbound internet access.
+- The ENTSO-E API is operational ([status page](https://transparency.entsoe.eu/)).
+
+### Tomorrow prices stay *Unknown*
+
+ENTSO-E publishes next-day prices between 13:00 and 15:00 CET. Before that window the sensors correctly show *Unknown*. If they remain unknown after 15:00 CET, check the HA logs for warnings from `custom_components.electricity_price`.
+
+### Prices seem wrong
+
+Open **Settings → Devices & Services → \<your device\> → Download diagnostics**. The file shows the number of price slots fetched for today and tomorrow, the raw slot counts, and your current VAT/fee settings — useful when reporting an issue.
+
+### Card does not appear in the card picker
+
+The JavaScript file is registered automatically when the integration loads. If it is missing, restart Home Assistant and hard-refresh your browser (`Ctrl+Shift+R`).
