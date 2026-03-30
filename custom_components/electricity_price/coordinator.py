@@ -102,10 +102,25 @@ class PriceCoordinator(DataUpdateCoordinator[PriceData]):
             )
         )
 
-    async def _handle_slot_boundary(self, _now) -> None:
-        """Notify all listeners at each 15-minute price slot boundary."""
-        if self.data is not None:
-            self.async_set_updated_data(self.data)
+    async def _handle_slot_boundary(self, now) -> None:
+        """Notify all listeners at each 15-minute price slot boundary.
+
+        Also requests a full refresh when tomorrow's prices are absent and the
+        local time is past 13:00 — ENTSO-E publishes day-ahead prices around
+        that time, so polling at quarter-hour intervals keeps the delay under
+        15 minutes rather than up to 60 minutes.
+        """
+        if self.data is None:
+            return
+
+        if not self.data.tomorrow_available and dt_util.as_local(now).hour >= 13:
+            await self.async_request_refresh()
+
+        # Always push current data to entities at each slot boundary.
+        # async_request_refresh only notifies listeners when data changes;
+        # this call ensures sensors reflect the new 15-minute slot even when
+        # the refresh returned identical data (e.g. tomorrow still unavailable).
+        self.async_set_updated_data(self.data)
 
     async def _async_update_data(self) -> PriceData:
         options = self.entry.options
