@@ -253,7 +253,6 @@ class CheapestTimeSensor(_PriceSensor):
         if not prices:
             return None
         cheapest_key = min(prices, key=prices.__getitem__)
-        from datetime import datetime, timezone
         return datetime.strptime(cheapest_key, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
 
 
