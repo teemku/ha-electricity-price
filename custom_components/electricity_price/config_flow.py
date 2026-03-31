@@ -232,7 +232,7 @@ class ElectricityPriceOptionsFlow(OptionsFlow):
                     CONF_TRANSFER_FEE,
                     default=opts.get(CONF_TRANSFER_FEE, DEFAULT_TRANSFER_FEE),
                 ): NumberSelector(
-                    NumberSelectorConfig(min=0, max=100, step=0.01, mode=NumberSelectorMode.BOX)
+                    NumberSelectorConfig(min=-100, max=100, step=0.01, mode=NumberSelectorMode.BOX)
                 ),
                 vol.Required("num_tiers", default=current_tier_count): NumberSelector(
                     NumberSelectorConfig(min=2, max=5, step=1, mode=NumberSelectorMode.BOX)
