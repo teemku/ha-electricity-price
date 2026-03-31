@@ -9,6 +9,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.components.frontend import add_extra_js_url
 from homeassistant.components.http import StaticPathConfig
+from homeassistant.exceptions import ServiceValidationError
 import homeassistant.helpers.entity_registry as er
 
 import voluptuous as vol
@@ -114,7 +115,10 @@ async def _handle_set_vat(call) -> None:
     """Service handler: update VAT on targeted (or all) config entries."""
     vat = call.data[CONF_VAT]
     hass = call.hass
-    for entry_id in _target_entry_ids(hass, call):
+    entry_ids = _target_entry_ids(hass, call)
+    if not entry_ids:
+        raise ServiceValidationError("No matching Electricity Price device found")
+    for entry_id in entry_ids:
         entry = hass.config_entries.async_get_entry(entry_id)
         coordinator: PriceCoordinator | None = getattr(entry, "runtime_data", None)
         if coordinator is not None:
@@ -126,7 +130,10 @@ async def _handle_set_transfer_fee(call) -> None:
     """Service handler: update transfer fee on targeted (or all) config entries."""
     fee = call.data[CONF_TRANSFER_FEE]
     hass = call.hass
-    for entry_id in _target_entry_ids(hass, call):
+    entry_ids = _target_entry_ids(hass, call)
+    if not entry_ids:
+        raise ServiceValidationError("No matching Electricity Price device found")
+    for entry_id in entry_ids:
         entry = hass.config_entries.async_get_entry(entry_id)
         coordinator: PriceCoordinator | None = getattr(entry, "runtime_data", None)
         if coordinator is not None:
