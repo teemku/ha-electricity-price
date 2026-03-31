@@ -73,6 +73,11 @@ async def fetch_day_ahead_prices(
             if response.status == 401:
                 raise EntsoEAuthError("Invalid API key (HTTP 401)")
             if response.status != 200:
+                _LOGGER.debug(
+                    "ENTSO-E error response (HTTP %d): %s",
+                    response.status,
+                    text[:500],
+                )
                 raise EntsoEConnectionError(
                     f"ENTSO-E returned HTTP {response.status}"
                 )
