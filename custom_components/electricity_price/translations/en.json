@@ -99,6 +99,12 @@
       }
     }
   },
+  "issues": {
+    "auth_failed": {
+      "title": "ENTSO-E authentication failed for {area}",
+      "description": "The API key for the **{area}** price area is no longer valid. Go to **Settings → Devices & Services**, find the Electricity Price integration, and select **Reconfigure** to enter a new key."
+    }
+  },
   "device_automation": {
     "trigger_type": {
       "optimal_start": "Optimal start time",

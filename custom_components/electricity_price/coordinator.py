@@ -7,11 +7,12 @@ import logging
 from dataclasses import dataclass, field
 from datetime import date, timedelta
 
+from homeassistant.components.repairs import IssueSeverity, async_create_issue, async_delete_issue
 from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import ConfigEntryAuthFailed
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.event import async_track_utc_time_change
 from homeassistant.helpers.storage import Store as _BaseStore
-from homeassistant.exceptions import ConfigEntryAuthFailed
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 from homeassistant.util import dt as dt_util
 
@@ -162,6 +163,15 @@ class PriceCoordinator(DataUpdateCoordinator[PriceData]):
                     session, api_key, area_eic, today, tz
                 )
             except EntsoEAuthError as err:
+                async_create_issue(
+                    self.hass,
+                    DOMAIN,
+                    f"auth_failed_{self.entry.entry_id}",
+                    is_fixable=False,
+                    severity=IssueSeverity.ERROR,
+                    translation_key="auth_failed",
+                    translation_placeholders={"area": area_label},
+                )
                 raise ConfigEntryAuthFailed(f"Authentication failed: {err}") from err
             except (EntsoEConnectionError, EntsoENoDataError) as err:
                 raise UpdateFailed(f"Could not fetch today's prices: {err}") from err
@@ -209,6 +219,7 @@ class PriceCoordinator(DataUpdateCoordinator[PriceData]):
         )
 
         await self._save_stored()
+        async_delete_issue(self.hass, DOMAIN, f"auth_failed_{self.entry.entry_id}")
         return result
 
     async def async_update_vat_fee(self, vat: float, transfer_fee: float) -> None:
