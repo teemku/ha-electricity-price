@@ -116,7 +116,16 @@ class PriceCoordinator(DataUpdateCoordinator[PriceData]):
         if self.data is None:
             return
 
-        if not self.data.tomorrow_available and dt_util.as_local(now).hour >= 13:
+        local_now = dt_util.as_local(now)
+
+        # At day rollover fetch fresh prices immediately so that today_prices
+        # reflects the new day and tomorrow_prices resets. Without this the
+        # current-price sensor shows Unknown until the next hourly update.
+        if local_now.date() != self.data.today_date:
+            await self.async_request_refresh()
+            return
+
+        if not self.data.tomorrow_available and local_now.hour >= 13:
             await self.async_request_refresh()
 
         # Always push current data to entities at each slot boundary.
