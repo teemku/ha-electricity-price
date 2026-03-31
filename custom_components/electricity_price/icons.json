@@ -1,0 +1,42 @@
+{
+  "entity": {
+    "sensor": {
+      "current_price": {
+        "default": "mdi:lightning-bolt"
+      },
+      "next_hour_price": {
+        "default": "mdi:lightning-bolt-outline"
+      },
+      "today_min": {
+        "default": "mdi:arrow-down-bold"
+      },
+      "today_max": {
+        "default": "mdi:arrow-up-bold"
+      },
+      "today_average": {
+        "default": "mdi:calculator-variant"
+      },
+      "tomorrow_min": {
+        "default": "mdi:arrow-down-bold"
+      },
+      "tomorrow_max": {
+        "default": "mdi:arrow-up-bold"
+      },
+      "tomorrow_average": {
+        "default": "mdi:calculator-variant"
+      },
+      "price_level": {
+        "default": "mdi:tag-outline"
+      },
+      "cheapest_time": {
+        "default": "mdi:clock-outline"
+      },
+      "vat": {
+        "default": "mdi:percent"
+      },
+      "transfer_fee": {
+        "default": "mdi:transmission-tower"
+      }
+    }
+  }
+}

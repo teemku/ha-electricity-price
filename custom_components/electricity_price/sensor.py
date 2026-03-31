@@ -90,7 +90,6 @@ class CurrentPriceSensor(_PriceSensor):
     """Current 15-minute slot electricity price."""
 
     _attr_state_class = SensorStateClass.MEASUREMENT
-    _attr_icon = "mdi:lightning-bolt"
 
     def __init__(self, coordinator: PriceCoordinator, entry: ConfigEntry) -> None:
         super().__init__(coordinator, entry, "current_price")
@@ -119,7 +118,6 @@ class NextHourPriceSensor(_PriceSensor):
     """Price for the next 15-minute slot."""
 
     _attr_state_class = SensorStateClass.MEASUREMENT
-    _attr_icon = "mdi:lightning-bolt-outline"
 
     def __init__(self, coordinator: PriceCoordinator, entry: ConfigEntry) -> None:
         super().__init__(coordinator, entry, "next_hour_price")
@@ -135,8 +133,6 @@ class NextHourPriceSensor(_PriceSensor):
 
 
 class TodayMinSensor(_PriceSensor):
-    _attr_icon = "mdi:arrow-down-bold"
-
     def __init__(self, coordinator: PriceCoordinator, entry: ConfigEntry) -> None:
         super().__init__(coordinator, entry, "today_min")
         self._attr_native_unit_of_measurement = UNIT
@@ -148,8 +144,6 @@ class TodayMinSensor(_PriceSensor):
 
 
 class TodayMaxSensor(_PriceSensor):
-    _attr_icon = "mdi:arrow-up-bold"
-
     def __init__(self, coordinator: PriceCoordinator, entry: ConfigEntry) -> None:
         super().__init__(coordinator, entry, "today_max")
         self._attr_native_unit_of_measurement = UNIT
@@ -161,8 +155,6 @@ class TodayMaxSensor(_PriceSensor):
 
 
 class TodayAverageSensor(_PriceSensor):
-    _attr_icon = "mdi:calculator-variant"
-
     def __init__(self, coordinator: PriceCoordinator, entry: ConfigEntry) -> None:
         super().__init__(coordinator, entry, "today_average")
         self._attr_native_unit_of_measurement = UNIT
@@ -174,8 +166,6 @@ class TodayAverageSensor(_PriceSensor):
 
 
 class TomorrowMinSensor(_PriceSensor):
-    _attr_icon = "mdi:arrow-down-bold"
-
     def __init__(self, coordinator: PriceCoordinator, entry: ConfigEntry) -> None:
         super().__init__(coordinator, entry, "tomorrow_min")
         self._attr_native_unit_of_measurement = UNIT
@@ -187,8 +177,6 @@ class TomorrowMinSensor(_PriceSensor):
 
 
 class TomorrowMaxSensor(_PriceSensor):
-    _attr_icon = "mdi:arrow-up-bold"
-
     def __init__(self, coordinator: PriceCoordinator, entry: ConfigEntry) -> None:
         super().__init__(coordinator, entry, "tomorrow_max")
         self._attr_native_unit_of_measurement = UNIT
@@ -200,8 +188,6 @@ class TomorrowMaxSensor(_PriceSensor):
 
 
 class TomorrowAverageSensor(_PriceSensor):
-    _attr_icon = "mdi:calculator-variant"
-
     def __init__(self, coordinator: PriceCoordinator, entry: ConfigEntry) -> None:
         super().__init__(coordinator, entry, "tomorrow_average")
         self._attr_native_unit_of_measurement = UNIT
@@ -216,7 +202,6 @@ class PriceLevelSensor(_PriceSensor):
     """Human-readable price level based on configured thresholds (e.g. 'Cheap')."""
 
     _attr_device_class = SensorDeviceClass.ENUM
-    _attr_icon = "mdi:tag-outline"
 
     def __init__(self, coordinator: PriceCoordinator, entry: ConfigEntry) -> None:
         super().__init__(coordinator, entry, "price_level")
@@ -236,7 +221,6 @@ class PriceLevelSensor(_PriceSensor):
 class CheapestTimeSensor(_PriceSensor):
     """Local time of the cheapest 15-minute slot today."""
 
-    _attr_icon = "mdi:clock-outline"
     _attr_device_class = SensorDeviceClass.TIMESTAMP
 
     def __init__(self, coordinator: PriceCoordinator, entry: ConfigEntry) -> None:
@@ -257,7 +241,6 @@ class VatSensor(_PriceSensor):
     _attr_entity_category = EntityCategory.DIAGNOSTIC
     _attr_state_class = SensorStateClass.MEASUREMENT
     _attr_native_unit_of_measurement = "%"
-    _attr_icon = "mdi:percent"
 
     def __init__(self, coordinator: PriceCoordinator, entry: ConfigEntry) -> None:
         super().__init__(coordinator, entry, "vat")
@@ -273,7 +256,6 @@ class TransferFeeSensor(_PriceSensor):
     _attr_entity_category = EntityCategory.DIAGNOSTIC
     _attr_state_class = SensorStateClass.MEASUREMENT
     _attr_native_unit_of_measurement = UNIT
-    _attr_icon = "mdi:transmission-tower"
 
     def __init__(self, coordinator: PriceCoordinator, entry: ConfigEntry) -> None:
         super().__init__(coordinator, entry, "transfer_fee")
