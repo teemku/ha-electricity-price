@@ -23,6 +23,7 @@ from .coordinator import PriceCoordinator, PriceData
 
 _LOGGER = logging.getLogger(__name__)
 
+PARALLEL_UPDATES = 0
 UNIT = "c/kWh"
 
 
