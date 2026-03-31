@@ -134,7 +134,6 @@ class NextHourPriceSensor(_PriceSensor):
 
 
 class TodayMinSensor(_PriceSensor):
-    _attr_state_class = SensorStateClass.MEASUREMENT
     _attr_icon = "mdi:arrow-down-bold"
 
     def __init__(self, coordinator: PriceCoordinator, entry: ConfigEntry) -> None:
@@ -148,7 +147,6 @@ class TodayMinSensor(_PriceSensor):
 
 
 class TodayMaxSensor(_PriceSensor):
-    _attr_state_class = SensorStateClass.MEASUREMENT
     _attr_icon = "mdi:arrow-up-bold"
 
     def __init__(self, coordinator: PriceCoordinator, entry: ConfigEntry) -> None:
@@ -162,7 +160,6 @@ class TodayMaxSensor(_PriceSensor):
 
 
 class TodayAverageSensor(_PriceSensor):
-    _attr_state_class = SensorStateClass.MEASUREMENT
     _attr_icon = "mdi:calculator-variant"
 
     def __init__(self, coordinator: PriceCoordinator, entry: ConfigEntry) -> None:
@@ -176,7 +173,6 @@ class TodayAverageSensor(_PriceSensor):
 
 
 class TomorrowMinSensor(_PriceSensor):
-    _attr_state_class = SensorStateClass.MEASUREMENT
     _attr_icon = "mdi:arrow-down-bold"
 
     def __init__(self, coordinator: PriceCoordinator, entry: ConfigEntry) -> None:
@@ -190,7 +186,6 @@ class TomorrowMinSensor(_PriceSensor):
 
 
 class TomorrowMaxSensor(_PriceSensor):
-    _attr_state_class = SensorStateClass.MEASUREMENT
     _attr_icon = "mdi:arrow-up-bold"
 
     def __init__(self, coordinator: PriceCoordinator, entry: ConfigEntry) -> None:
@@ -204,7 +199,6 @@ class TomorrowMaxSensor(_PriceSensor):
 
 
 class TomorrowAverageSensor(_PriceSensor):
-    _attr_state_class = SensorStateClass.MEASUREMENT
     _attr_icon = "mdi:calculator-variant"
 
     def __init__(self, coordinator: PriceCoordinator, entry: ConfigEntry) -> None:
