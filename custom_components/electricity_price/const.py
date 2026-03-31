@@ -1,5 +1,7 @@
 """Constants for the Electricity Price integration."""
 
+from typing import Any
+
 VENDOR = "teemku"
 INTEGRATION_NAME = "electricity_price"
 DOMAIN = INTEGRATION_NAME
@@ -17,7 +19,7 @@ CONF_THRESHOLDS = "thresholds"
 # Defaults
 DEFAULT_VAT = 0.0
 DEFAULT_TRANSFER_FEE = 0.0
-DEFAULT_THRESHOLDS = [
+DEFAULT_THRESHOLDS: list[dict[str, Any]] = [
     {"name": "Cheap", "below": 5.0, "color": "#22c55e"},
     {"name": "Normal", "below": 12.0, "color": "#f59e0b"},
     {"name": "Expensive", "below": None, "color": "#ef4444"},

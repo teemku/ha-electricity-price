@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 import math
 from datetime import datetime, time, timedelta, timezone
+from typing import Any, cast
 
 from homeassistant.components.sensor import (
     SensorDeviceClass,
@@ -51,7 +52,7 @@ async def async_setup_entry(
     )
 
 
-class _PriceSensor(CoordinatorEntity[PriceCoordinator], SensorEntity):
+class _PriceSensor(CoordinatorEntity[PriceCoordinator], SensorEntity):  # type: ignore[misc]
     """Base class for all Electricity Price sensors."""
 
     _attr_has_entity_name = True
@@ -69,7 +70,7 @@ class _PriceSensor(CoordinatorEntity[PriceCoordinator], SensorEntity):
 
     @property
     def _data(self) -> PriceData:
-        return self.coordinator.data
+        return cast(PriceData, self.coordinator.data)
 
     @property
     def _current_key(self) -> str:
@@ -77,7 +78,7 @@ class _PriceSensor(CoordinatorEntity[PriceCoordinator], SensorEntity):
         return _utc_key(dt_util.utcnow())
 
     @property
-    def device_info(self):
+    def device_info(self) -> dict[str, Any]:
         return {
             "identifiers": {(DOMAIN, self._entry.entry_id)},
             "name": self._entry.title,
@@ -100,7 +101,7 @@ class CurrentPriceSensor(_PriceSensor):
         return self._data.today_prices.get(self._current_key)
 
     @property
-    def extra_state_attributes(self) -> dict:
+    def extra_state_attributes(self) -> dict[str, Any]:
         data = self._data
         current_key = self._current_key
         return {
@@ -227,7 +228,7 @@ class CheapestTimeSensor(_PriceSensor):
         super().__init__(coordinator, entry, "cheapest_time")
 
     @property
-    def native_value(self):
+    def native_value(self) -> datetime | None:
         prices = self._data.today_prices
         if not prices:
             return None
@@ -247,7 +248,7 @@ class VatSensor(_PriceSensor):
 
     @property
     def native_value(self) -> float:
-        return self.coordinator.entry.options.get(CONF_VAT, DEFAULT_VAT)
+        return float(self.coordinator.entry.options.get(CONF_VAT, DEFAULT_VAT))
 
 
 class TransferFeeSensor(_PriceSensor):
@@ -262,10 +263,10 @@ class TransferFeeSensor(_PriceSensor):
 
     @property
     def native_value(self) -> float:
-        return self.coordinator.entry.options.get(CONF_TRANSFER_FEE, DEFAULT_TRANSFER_FEE)
+        return float(self.coordinator.entry.options.get(CONF_TRANSFER_FEE, DEFAULT_TRANSFER_FEE))
 
 
-def _utc_key(utc_dt) -> str:
+def _utc_key(utc_dt: datetime) -> str:
     """Round a UTC datetime down to the nearest 15-min and format as ISO string."""
     minute = (utc_dt.minute // 15) * 15
     rounded = utc_dt.replace(minute=minute, second=0, microsecond=0)
@@ -303,10 +304,10 @@ def _find_optimal_start(
     )
 
 
-def _get_price_level(price: float, thresholds: list[dict]) -> str:
+def _get_price_level(price: float, thresholds: list[dict[str, Any]]) -> str:
     """Return the threshold name that the price falls into."""
     for threshold in thresholds:
         below = threshold.get("below")
         if below is None or price < below:
-            return threshold["name"]
-    return thresholds[-1]["name"]
+            return cast(str, threshold["name"])
+    return cast(str, thresholds[-1]["name"])

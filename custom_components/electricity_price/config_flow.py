@@ -44,11 +44,11 @@ _AREA_OPTIONS = list(PRICE_AREAS.keys())
 _BELOW_FALLBACKS = [5.0, 12.0, 20.0, 30.0]
 
 
-def _thresholds_to_str(thresholds: list[dict]) -> str:
+def _thresholds_to_str(thresholds: list[dict[str, Any]]) -> str:
     return json.dumps(thresholds, indent=2)
 
 
-def _load_tiers(opts: dict) -> list[dict]:
+def _load_tiers(opts: dict[str, Any]) -> list[dict[str, Any]]:
     """Return the current tiers from stored options, falling back to defaults."""
     raw = opts.get(CONF_THRESHOLDS)
     if not raw:
@@ -66,7 +66,7 @@ def _load_tiers(opts: dict) -> list[dict]:
     return list(DEFAULT_THRESHOLDS)
 
 
-def _build_thresholds(user_input: dict, num_tiers: int) -> list[dict]:
+def _build_thresholds(user_input: dict[str, Any], num_tiers: int) -> list[dict[str, Any]]:
     """Reconstruct the thresholds list from the flat tier form fields.
 
     Raises ValueError when the input is inconsistent.
@@ -95,14 +95,14 @@ def _build_thresholds(user_input: dict, num_tiers: int) -> list[dict]:
     return tiers
 
 
-class ElectricityPriceConfigFlow(ConfigFlow, domain=DOMAIN):
+class ElectricityPriceConfigFlow(ConfigFlow, domain=DOMAIN):  # type: ignore[misc, call-arg]
     """Handle the initial setup UI."""
 
     VERSION = 1
 
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
-    ) -> dict:
+    ) -> dict[str, Any]:
         errors: dict[str, str] = {}
 
         if user_input is not None:
@@ -115,7 +115,7 @@ class ElectricityPriceConfigFlow(ConfigFlow, domain=DOMAIN):
             errors = await self._validate_api(api_key, area_label)
 
             if not errors:
-                return self.async_create_entry(
+                return self.async_create_entry(  # type: ignore[no-any-return]
                     title=area_label,
                     data={
                         CONF_API_KEY: api_key,
@@ -142,7 +142,7 @@ class ElectricityPriceConfigFlow(ConfigFlow, domain=DOMAIN):
             }
         )
 
-        return self.async_show_form(
+        return self.async_show_form(  # type: ignore[no-any-return]
             step_id="user",
             data_schema=schema,
             errors=errors,
@@ -170,12 +170,12 @@ class ElectricityPriceConfigFlow(ConfigFlow, domain=DOMAIN):
 
     async def async_step_reauth(
         self, entry_data: dict[str, Any]
-    ) -> dict:
+    ) -> dict[str, Any]:
         return await self.async_step_reauth_confirm()
 
     async def async_step_reauth_confirm(
         self, user_input: dict[str, Any] | None = None
-    ) -> dict:
+    ) -> dict[str, Any]:
         errors: dict[str, str] = {}
         entry = self._get_reauth_entry()
 
@@ -183,7 +183,7 @@ class ElectricityPriceConfigFlow(ConfigFlow, domain=DOMAIN):
             api_key = user_input[CONF_API_KEY].strip()
             errors = await self._validate_api(api_key, entry.data[CONF_PRICE_AREA])
             if not errors:
-                return self.async_update_reload_and_abort(
+                return self.async_update_reload_and_abort(  # type: ignore[no-any-return]
                     entry,
                     data_updates={CONF_API_KEY: api_key},
                 )
@@ -196,7 +196,7 @@ class ElectricityPriceConfigFlow(ConfigFlow, domain=DOMAIN):
             }
         )
 
-        return self.async_show_form(
+        return self.async_show_form(  # type: ignore[no-any-return]
             step_id="reauth_confirm",
             data_schema=schema,
             errors=errors,
@@ -204,7 +204,7 @@ class ElectricityPriceConfigFlow(ConfigFlow, domain=DOMAIN):
 
     async def async_step_reconfigure(
         self, user_input: dict[str, Any] | None = None
-    ) -> dict:
+    ) -> dict[str, Any]:
         errors: dict[str, str] = {}
         entry = self._get_reconfigure_entry()
 
@@ -212,7 +212,7 @@ class ElectricityPriceConfigFlow(ConfigFlow, domain=DOMAIN):
             api_key = user_input[CONF_API_KEY].strip()
             errors = await self._validate_api(api_key, entry.data[CONF_PRICE_AREA])
             if not errors:
-                return self.async_update_reload_and_abort(
+                return self.async_update_reload_and_abort(  # type: ignore[no-any-return]
                     entry,
                     data_updates={CONF_API_KEY: api_key},
                 )
@@ -225,19 +225,19 @@ class ElectricityPriceConfigFlow(ConfigFlow, domain=DOMAIN):
             }
         )
 
-        return self.async_show_form(
+        return self.async_show_form(  # type: ignore[no-any-return]
             step_id="reconfigure",
             data_schema=schema,
             errors=errors,
         )
 
     @staticmethod
-    @callback
+    @callback  # type: ignore[untyped-decorator]
     def async_get_options_flow(config_entry: ConfigEntry) -> "ElectricityPriceOptionsFlow":
         return ElectricityPriceOptionsFlow(config_entry)
 
 
-class ElectricityPriceOptionsFlow(OptionsFlow):
+class ElectricityPriceOptionsFlow(OptionsFlow):  # type: ignore[misc]
     """Handle the options UI (reconfigure after setup)."""
 
     def __init__(self, config_entry: ConfigEntry) -> None:
@@ -248,7 +248,7 @@ class ElectricityPriceOptionsFlow(OptionsFlow):
 
     async def async_step_init(
         self, user_input: dict[str, Any] | None = None
-    ) -> dict:
+    ) -> dict[str, Any]:
         opts = self._entry.options
 
         if user_input is not None:
@@ -279,11 +279,11 @@ class ElectricityPriceOptionsFlow(OptionsFlow):
             }
         )
 
-        return self.async_show_form(step_id="init", data_schema=schema)
+        return self.async_show_form(step_id="init", data_schema=schema)  # type: ignore[no-any-return]
 
     async def async_step_tiers(
         self, user_input: dict[str, Any] | None = None
-    ) -> dict:
+    ) -> dict[str, Any]:
         errors: dict[str, str] = {}
         opts = self._entry.options
         n = self._num_tiers
@@ -295,7 +295,7 @@ class ElectricityPriceOptionsFlow(OptionsFlow):
                 errors["base"] = "invalid_thresholds"
                 _LOGGER.debug("Threshold validation error: %s", err)
             else:
-                return self.async_create_entry(
+                return self.async_create_entry(  # type: ignore[no-any-return]
                     data={
                         CONF_VAT: self._vat,
                         CONF_TRANSFER_FEE: self._transfer_fee,
@@ -304,7 +304,7 @@ class ElectricityPriceOptionsFlow(OptionsFlow):
                 )
 
         current_tiers = _load_tiers(opts)
-        schema_fields: dict = {}
+        schema_fields: dict[Any, Any] = {}
 
         for i in range(1, n + 1):
             t = current_tiers[i - 1] if i - 1 < len(current_tiers) else {}
@@ -322,7 +322,7 @@ class ElectricityPriceOptionsFlow(OptionsFlow):
                     NumberSelectorConfig(min=-100, max=10000, step=0.01, mode=NumberSelectorMode.BOX)
                 )
 
-        return self.async_show_form(
+        return self.async_show_form(  # type: ignore[no-any-return]
             step_id="tiers",
             data_schema=vol.Schema(schema_fields),
             errors=errors,

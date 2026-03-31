@@ -142,14 +142,18 @@ def _parse_xml(
                 if pos_el is None or price_el is None:
                     continue
 
+                pos_text = pos_el.text
+                price_text = price_el.text
+                if pos_text is None or price_text is None:
+                    continue
                 try:
-                    position = int(pos_el.text)
-                    price_mwh = float(price_el.text)
-                except (ValueError, TypeError):
+                    position = int(pos_text)
+                    price_mwh = float(price_text)
+                except ValueError:
                     _LOGGER.warning(
                         "Skipping malformed price point: position=%r, price=%r",
-                        pos_el.text,
-                        price_el.text,
+                        pos_text,
+                        price_text,
                     )
                     continue
 

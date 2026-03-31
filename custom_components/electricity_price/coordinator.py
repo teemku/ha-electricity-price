@@ -5,7 +5,8 @@ from __future__ import annotations
 import json
 import logging
 from dataclasses import dataclass, field
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
+from typing import Any
 
 from homeassistant.helpers.issue_registry import IssueSeverity, async_create_issue, async_delete_issue
 from homeassistant.core import HomeAssistant
@@ -41,7 +42,7 @@ UPDATE_INTERVAL = timedelta(hours=1)
 STORAGE_VERSION = 3
 
 
-class _Store(_BaseStore):
+class _Store(_BaseStore):  # type: ignore[misc]
     """Store subclass that discards data from older storage versions.
 
     Versions 1 and 2 stored prices with VAT and transfer fee already applied,
@@ -54,8 +55,8 @@ class _Store(_BaseStore):
         self,
         old_major_version: int,
         old_minor_version: int,
-        old_data: dict,
-    ) -> dict | None:
+        old_data: dict[str, Any],
+    ) -> dict[str, Any] | None:
         return None
 
 
@@ -64,7 +65,7 @@ class PriceData:
     today_prices: dict[str, float]    # UTC ISO string -> c/kWh (VAT + fee applied)
     tomorrow_prices: dict[str, float] # UTC ISO string -> c/kWh; empty dict until ~13:00 CET
     today_date: date
-    thresholds: list[dict] = field(default_factory=list)
+    thresholds: list[dict[str, Any]] = field(default_factory=list)
 
     @property
     def tomorrow_available(self) -> bool:
@@ -72,10 +73,10 @@ class PriceData:
         return len(self.tomorrow_prices) >= MIN_TOMORROW_SLOTS
 
 
-class PriceCoordinator(DataUpdateCoordinator[PriceData]):
+class PriceCoordinator(DataUpdateCoordinator[PriceData]):  # type: ignore[misc]
     """Fetches and processes ENTSO-E day-ahead electricity prices."""
 
-    def __init__(self, hass: HomeAssistant, entry) -> None:
+    def __init__(self, hass: HomeAssistant, entry: Any) -> None:
         super().__init__(
             hass,
             _LOGGER,
@@ -106,7 +107,7 @@ class PriceCoordinator(DataUpdateCoordinator[PriceData]):
             )
         )
 
-    async def _handle_slot_boundary(self, now) -> None:
+    async def _handle_slot_boundary(self, now: datetime) -> None:
         """Notify all listeners at each 15-minute price slot boundary.
 
         Also requests a full refresh when tomorrow's prices are absent and the
@@ -256,9 +257,9 @@ class PriceCoordinator(DataUpdateCoordinator[PriceData]):
         finally:
             self._pricing_update_in_progress = False
 
-    async def _load_stored(self, today: date) -> dict | None:
+    async def _load_stored(self, today: date) -> dict[str, Any] | None:
         """Load persisted raw price data, discarding it if it's from a different day."""
-        stored = await self._store.async_load()
+        stored: dict[str, Any] | None = await self._store.async_load()
         if not stored:
             return None
         if stored.get("today_date") != today.isoformat():
@@ -294,7 +295,7 @@ class PriceCoordinator(DataUpdateCoordinator[PriceData]):
         return result
 
     @staticmethod
-    def _load_thresholds(options: dict) -> list[dict]:
+    def _load_thresholds(options: dict[str, Any]) -> list[dict[str, Any]]:
         raw = options.get(CONF_THRESHOLDS)
         if not raw:
             return DEFAULT_THRESHOLDS

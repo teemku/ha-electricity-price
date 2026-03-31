@@ -8,7 +8,7 @@ from __future__ import annotations
 import logging
 import math
 from datetime import date as dt_date, datetime, time, timedelta, timezone
-from typing import Any
+from typing import Any, cast
 
 import voluptuous as vol
 
@@ -26,6 +26,7 @@ from homeassistant.helpers.selector import (
 from homeassistant.util import dt as dt_util
 
 from .const import DOMAIN, INTEGRATION_NAME
+from .coordinator import PriceCoordinator
 from .sensor import _find_optimal_start, _get_price_level, _utc_key
 
 _LOGGER = logging.getLogger(__name__)
@@ -141,7 +142,7 @@ def _find_optimal_start_windowed(
     )
 
 
-def _resolve_coordinator(hass: HomeAssistant, device_id: str):
+def _resolve_coordinator(hass: HomeAssistant, device_id: str) -> PriceCoordinator | None:
     """Return the coordinator for a device, or None if not found."""
     dev_reg = dr.async_get(hass)
     device = dev_reg.async_get(device_id)
@@ -152,7 +153,7 @@ def _resolve_coordinator(hass: HomeAssistant, device_id: str):
         if entry is not None and entry.domain == DOMAIN:
             coordinator = getattr(entry, "runtime_data", None)
             if coordinator is not None:
-                return coordinator
+                return cast(PriceCoordinator, coordinator)
     return None
 
 
@@ -167,7 +168,7 @@ async def async_get_triggers(
 
 
 async def async_get_trigger_capabilities(
-    hass: HomeAssistant, config: dict
+    hass: HomeAssistant, config: dict[str, Any]
 ) -> dict[str, vol.Schema]:
     """Return extra fields shown in the automation editor for this trigger."""
     trigger_type = config.get(CONF_TYPE)
@@ -210,9 +211,9 @@ async def async_get_trigger_capabilities(
 
 async def async_attach_trigger(
     hass: HomeAssistant,
-    config: dict,
+    config: dict[str, Any],
     action: Any,
-    trigger_info: dict,
+    trigger_info: dict[str, Any],
 ) -> CALLBACK_TYPE:
     """Attach the trigger; returns an unsubscribe callable."""
     trigger_type: str = config[CONF_TYPE]
@@ -237,8 +238,15 @@ async def async_attach_trigger(
     return lambda: None
 
 
-@callback
-def _attach_optimal_start(hass, config, action, trigger_info, coordinator, device_id) -> CALLBACK_TYPE:
+@callback  # type: ignore[untyped-decorator]
+def _attach_optimal_start(
+    hass: HomeAssistant,
+    config: dict[str, Any],
+    action: Any,
+    trigger_info: dict[str, Any],
+    coordinator: PriceCoordinator,
+    device_id: str,
+) -> CALLBACK_TYPE:
     duration_hours: float = config["duration"]
     window_start: time | None = _parse_time(config.get("window_start"))
     window_end: time | None = _parse_time(config.get("window_end"))
@@ -247,8 +255,8 @@ def _attach_optimal_start(hass, config, action, trigger_info, coordinator, devic
     cancel_scheduled: CALLBACK_TYPE | None = None
     fired_on: dt_date | None = None
 
-    @callback
-    def _fire(_now) -> None:
+    @callback  # type: ignore[untyped-decorator]
+    def _fire(_now: datetime) -> None:
         nonlocal cancel_scheduled, fired_on
         cancel_scheduled = None
         fired_on = dt_util.now().date()
@@ -267,7 +275,7 @@ def _attach_optimal_start(hass, config, action, trigger_info, coordinator, devic
             },
         )
 
-    @callback
+    @callback  # type: ignore[untyped-decorator]
     def _schedule() -> None:
         nonlocal cancel_scheduled
 
@@ -302,7 +310,7 @@ def _attach_optimal_start(hass, config, action, trigger_info, coordinator, devic
     unsubs.append(coordinator.async_add_listener(_schedule))
     _schedule()
 
-    @callback
+    @callback  # type: ignore[untyped-decorator]
     def _unsub() -> None:
         for unsub in unsubs:
             unsub()
@@ -312,11 +320,18 @@ def _attach_optimal_start(hass, config, action, trigger_info, coordinator, devic
     return _unsub
 
 
-@callback
-def _attach_price_level_change(hass, config, action, trigger_info, coordinator, device_id) -> CALLBACK_TYPE:
+@callback  # type: ignore[untyped-decorator]
+def _attach_price_level_change(
+    hass: HomeAssistant,
+    config: dict[str, Any],
+    action: Any,
+    trigger_info: dict[str, Any],
+    coordinator: PriceCoordinator,
+    device_id: str,
+) -> CALLBACK_TYPE:
     prev_level: str | None = None
 
-    @callback
+    @callback  # type: ignore[untyped-decorator]
     def _on_update() -> None:
         nonlocal prev_level
         if coordinator.data is None:
@@ -347,16 +362,23 @@ def _attach_price_level_change(hass, config, action, trigger_info, coordinator, 
     return coordinator.async_add_listener(_on_update)
 
 
-@callback
+@callback  # type: ignore[untyped-decorator]
 def _attach_price_threshold(
-    hass, config, action, trigger_info, coordinator, device_id, *, below: bool
+    hass: HomeAssistant,
+    config: dict[str, Any],
+    action: Any,
+    trigger_info: dict[str, Any],
+    coordinator: PriceCoordinator,
+    device_id: str,
+    *,
+    below: bool,
 ) -> CALLBACK_TYPE:
     threshold: float = config["threshold"]
     trigger_type = TRIGGER_TYPE_PRICE_BELOW if below else TRIGGER_TYPE_PRICE_ABOVE
     # None = unknown, True = currently in the triggered state, False = not
     prev_triggered: bool | None = None
 
-    @callback
+    @callback  # type: ignore[untyped-decorator]
     def _on_update() -> None:
         nonlocal prev_triggered
         if coordinator.data is None:
@@ -389,11 +411,18 @@ def _attach_price_threshold(
     return coordinator.async_add_listener(_on_update)
 
 
-@callback
-def _attach_tomorrow_available(hass, config, action, trigger_info, coordinator, device_id) -> CALLBACK_TYPE:
+@callback  # type: ignore[untyped-decorator]
+def _attach_tomorrow_available(
+    hass: HomeAssistant,
+    config: dict[str, Any],
+    action: Any,
+    trigger_info: dict[str, Any],
+    coordinator: PriceCoordinator,
+    device_id: str,
+) -> CALLBACK_TYPE:
     prev_available: bool | None = None
 
-    @callback
+    @callback  # type: ignore[untyped-decorator]
     def _on_update() -> None:
         nonlocal prev_available
         if coordinator.data is None:

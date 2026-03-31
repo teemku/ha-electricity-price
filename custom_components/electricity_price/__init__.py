@@ -4,9 +4,10 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
+from typing import Any
 
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.components.frontend import add_extra_js_url
 from homeassistant.components.http import StaticPathConfig
 from homeassistant.exceptions import ServiceValidationError
@@ -33,7 +34,7 @@ _LOGGER = logging.getLogger(__name__)
 _STATIC_DIR = Path(__file__).parent / "www"
 
 
-async def async_setup(hass: HomeAssistant, config: dict) -> bool:
+async def async_setup(hass: HomeAssistant, config: dict[str, Any]) -> bool:
     """Register the static path for the Lovelace card once at HA startup."""
     await hass.http.async_register_static_paths(
         [StaticPathConfig(f"/{DOMAIN}", str(_STATIC_DIR), cache_headers=False)]
@@ -95,10 +96,10 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         if not remaining:
             hass.services.async_remove(DOMAIN, SERVICE_SET_VAT)
             hass.services.async_remove(DOMAIN, SERVICE_SET_TRANSFER_FEE)
-    return unloaded
+    return bool(unloaded)
 
 
-def _target_entry_ids(hass: HomeAssistant, call) -> list[str]:
+def _target_entry_ids(hass: HomeAssistant, call: ServiceCall) -> list[str]:
     """Resolve the required device_id field to a config entry ID list."""
     device_id: str = call.data["device_id"]
     ent_reg = er.async_get(hass)
@@ -111,7 +112,7 @@ def _target_entry_ids(hass: HomeAssistant, call) -> list[str]:
     return list(found)
 
 
-async def _handle_set_vat(call) -> None:
+async def _handle_set_vat(call: ServiceCall) -> None:
     """Service handler: update VAT on targeted (or all) config entries."""
     vat = call.data[CONF_VAT]
     hass = call.hass
@@ -126,7 +127,7 @@ async def _handle_set_vat(call) -> None:
             await coordinator.async_update_vat_fee(vat, transfer_fee)
 
 
-async def _handle_set_transfer_fee(call) -> None:
+async def _handle_set_transfer_fee(call: ServiceCall) -> None:
     """Service handler: update transfer fee on targeted (or all) config entries."""
     fee = call.data[CONF_TRANSFER_FEE]
     hass = call.hass
