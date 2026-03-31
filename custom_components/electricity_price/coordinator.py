@@ -275,19 +275,21 @@ class PriceCoordinator(DataUpdateCoordinator[PriceData]):
     @staticmethod
     def _load_thresholds(options: dict) -> list[dict]:
         raw = options.get(CONF_THRESHOLDS)
-        if raw is None:
+        if not raw:
             return DEFAULT_THRESHOLDS
 
-        if isinstance(raw, str):
-            try:
-                parsed = json.loads(raw)
-            except (json.JSONDecodeError, ValueError):
-                _LOGGER.warning("Invalid thresholds JSON, using defaults")
-                return DEFAULT_THRESHOLDS
-        else:
-            parsed = raw
+        try:
+            parsed = json.loads(raw) if isinstance(raw, str) else raw
+        except (json.JSONDecodeError, ValueError) as exc:
+            _LOGGER.warning("Invalid thresholds JSON, using defaults: %s", exc)
+            return DEFAULT_THRESHOLDS
 
-        if isinstance(parsed, list) and parsed:
-            return parsed
+        if not isinstance(parsed, list) or not parsed:
+            _LOGGER.warning("Thresholds must be a non-empty list, using defaults")
+            return DEFAULT_THRESHOLDS
 
-        return DEFAULT_THRESHOLDS
+        if not all(isinstance(t, dict) and "name" in t and "below" in t for t in parsed):
+            _LOGGER.warning("One or more thresholds are missing required keys, using defaults")
+            return DEFAULT_THRESHOLDS
+
+        return parsed

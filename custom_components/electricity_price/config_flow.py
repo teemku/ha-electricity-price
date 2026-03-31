@@ -51,13 +51,18 @@ def _thresholds_to_str(thresholds: list[dict]) -> str:
 def _load_tiers(opts: dict) -> list[dict]:
     """Return the current tiers from stored options, falling back to defaults."""
     raw = opts.get(CONF_THRESHOLDS)
-    if raw:
-        try:
-            candidate = json.loads(raw) if isinstance(raw, str) else raw
-            if isinstance(candidate, list) and candidate:
-                return candidate
-        except (json.JSONDecodeError, ValueError):
-            pass
+    if not raw:
+        return list(DEFAULT_THRESHOLDS)
+    try:
+        candidate = json.loads(raw) if isinstance(raw, str) else raw
+    except (json.JSONDecodeError, ValueError):
+        return list(DEFAULT_THRESHOLDS)
+    if (
+        isinstance(candidate, list)
+        and candidate
+        and all(isinstance(t, dict) and "name" in t and "below" in t for t in candidate)
+    ):
+        return candidate
     return list(DEFAULT_THRESHOLDS)
 
 
