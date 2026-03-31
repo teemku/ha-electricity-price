@@ -1,4 +1,4 @@
-.PHONY: test test-cov build shell
+.PHONY: test test-cov build shell typecheck
 
 IMAGE := electricity-price-tests
 
@@ -15,3 +15,8 @@ test-cov: build
 
 shell: build
 	docker run --rm -it $(IMAGE) bash
+
+typecheck:
+	docker run --rm -v $(CURDIR):/code python:3.13-slim sh -c \
+		"pip install mypy --quiet --root-user-action=ignore 2>/dev/null && \
+		mypy --strict --ignore-missing-imports /code/custom_components/electricity_price/"
