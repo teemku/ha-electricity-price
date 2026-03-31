@@ -11,6 +11,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.event import async_track_utc_time_change
 from homeassistant.helpers.storage import Store as _BaseStore
+from homeassistant.exceptions import ConfigEntryAuthFailed
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 from homeassistant.util import dt as dt_util
 
@@ -152,7 +153,7 @@ class PriceCoordinator(DataUpdateCoordinator[PriceData]):
                     session, api_key, area_eic, today, tz
                 )
             except EntsoEAuthError as err:
-                raise UpdateFailed(f"Authentication failed: {err}") from err
+                raise ConfigEntryAuthFailed(f"Authentication failed: {err}") from err
             except (EntsoEConnectionError, EntsoENoDataError) as err:
                 raise UpdateFailed(f"Could not fetch today's prices: {err}") from err
             raw_today = self._to_raw_prices(fetched_today)

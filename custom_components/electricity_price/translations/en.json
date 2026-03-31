@@ -15,6 +15,13 @@
         "data": {
           "api_key": "ENTSO-E API Key"
         }
+      },
+      "reauth_confirm": {
+        "title": "Re-authenticate",
+        "description": "Your ENTSO-E API key is no longer valid. Please enter a new one.",
+        "data": {
+          "api_key": "ENTSO-E API Key"
+        }
       }
     },
     "error": {
@@ -23,7 +30,8 @@
       "no_data": "No price data available for this area. The key and area may still be valid."
     },
     "abort": {
-      "already_configured": "This price area is already configured."
+      "already_configured": "This price area is already configured.",
+      "reauth_successful": "Re-authentication was successful."
     }
   },
   "options": {
