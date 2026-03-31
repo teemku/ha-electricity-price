@@ -23,6 +23,16 @@ DEFAULT_THRESHOLDS = [
     {"name": "Expensive", "below": None, "color": "#ef4444"},
 ]
 
+# Price slot granularity
+SLOT_MINUTES = 15
+SLOTS_PER_HOUR = 60 // SLOT_MINUTES  # 4
+
+# Minimum 15-min slots required to consider tomorrow's data complete.
+# A normal day has 96 slots; DST spring-forward gives 92 (23 h × 4) and
+# fall-back gives 100 (25 h × 4). The threshold sits below the DST minimum
+# so a partial fetch is still rejected.
+MIN_TOMORROW_SLOTS = 88
+
 # ENTSO-E API
 ENTSOE_BASE_URL = "https://web-api.tp.entsoe.eu/api"
 ENTSOE_DOCUMENT_TYPE = "A44"

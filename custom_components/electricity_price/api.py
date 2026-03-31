@@ -8,7 +8,7 @@ from xml.etree import ElementTree
 
 import aiohttp
 
-from .const import ENTSOE_BASE_URL, ENTSOE_DOCUMENT_TYPE, ENTSOE_XML_NS
+from .const import ENTSOE_BASE_URL, ENTSOE_DOCUMENT_TYPE, ENTSOE_XML_NS, SLOT_MINUTES
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -153,7 +153,7 @@ def _parse_xml(
                 )
 
                 # Expand PT30M / PT60M points to 15-min sub-slots.
-                for offset_min in range(0, res_minutes, 15):
+                for offset_min in range(0, res_minutes, SLOT_MINUTES):
                     sub_utc = point_utc + datetime.timedelta(minutes=offset_min)
                     sub_local = sub_utc.astimezone(timezone)
                     if not (local_midnight <= sub_local < local_day_end):

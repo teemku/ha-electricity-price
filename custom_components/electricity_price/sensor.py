@@ -18,7 +18,7 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.const import EntityCategory
 from homeassistant.util import dt as dt_util
 
-from .const import CONF_TRANSFER_FEE, CONF_VAT, DEFAULT_TRANSFER_FEE, DEFAULT_VAT, DOMAIN, INTEGRATION_NAME, VENDOR
+from .const import CONF_TRANSFER_FEE, CONF_VAT, DEFAULT_TRANSFER_FEE, DEFAULT_VAT, DOMAIN, INTEGRATION_NAME, SLOTS_PER_HOUR, VENDOR
 from .coordinator import PriceCoordinator, PriceData
 
 _LOGGER = logging.getLogger(__name__)
@@ -304,7 +304,7 @@ def _find_optimal_start(
     result is always actionable. Returns None when fewer future slots remain
     than the requested window size.
     """
-    n = math.ceil(duration_hours * 4)
+    n = math.ceil(duration_hours * SLOTS_PER_HOUR)
     now_key = _utc_key(dt_util.utcnow())
     # ISO-8601 zero-padded strings sort lexicographically in chronological order.
     items = sorted(

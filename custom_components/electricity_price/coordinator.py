@@ -26,7 +26,9 @@ from .const import (
     DEFAULT_TRANSFER_FEE,
     DEFAULT_VAT,
     DOMAIN,
+    MIN_TOMORROW_SLOTS,
     PRICE_AREAS,
+    SLOT_MINUTES,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -65,7 +67,7 @@ class PriceData:
     @property
     def tomorrow_available(self) -> bool:
         # DST transition days have 23 h (92 slots) or 25 h (100 slots).
-        return len(self.tomorrow_prices) >= 88
+        return len(self.tomorrow_prices) >= MIN_TOMORROW_SLOTS
 
 
 class PriceCoordinator(DataUpdateCoordinator[PriceData]):
@@ -97,7 +99,7 @@ class PriceCoordinator(DataUpdateCoordinator[PriceData]):
             async_track_utc_time_change(
                 hass,
                 self._handle_slot_boundary,
-                minute=[0, 15, 30, 45],
+                minute=list(range(0, 60, SLOT_MINUTES)),
                 second=0,
             )
         )
