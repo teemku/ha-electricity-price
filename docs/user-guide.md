@@ -9,7 +9,9 @@
 5. [Dashboard card](#dashboard-card)
 6. [Automation triggers](#automation-triggers)
 7. [Services](#services)
-8. [Troubleshooting](#troubleshooting)
+8. [Known limitations](#known-limitations)
+9. [Removal](#removal)
+10. [Troubleshooting](#troubleshooting)
 
 ---
 
@@ -171,6 +173,27 @@ data:
 ```
 
 The `device_id` can be found in **Settings → Devices & Services → \<your device\> → Device info**.
+
+---
+
+## Known limitations
+
+- **Tomorrow prices are unavailable until ENTSO-E publishes them** — typically between 13:00 and 15:00 CET. Before that window all tomorrow sensors correctly show *Unknown*. The integration polls every 15 minutes after 13:00 local time to minimise the delay.
+- **Price granularity depends on the area** — ENTSO-E may publish 15-minute, 30-minute, or 60-minute slots depending on the bidding zone. All resolutions are normalised internally to 15-minute slots.
+- **Historical prices are not exposed** — only today's and tomorrow's prices are available. Past prices are not stored or surfaced as sensor state.
+- **ENTSO-E API rate limits** — the free API key has undocumented rate limits. Running many integration instances for different areas from the same key may eventually be rate-limited.
+- **Prices are day-ahead spot prices only** — the integration does not account for capacity tariffs, taxes beyond VAT, or any grid fees other than the flat transfer fee you configure.
+
+---
+
+## Removal
+
+1. Go to **Settings → Devices & Services**.
+2. Find the **Electricity Price** integration and click on it.
+3. Click the **⋮** menu next to the entry and select **Delete**.
+4. Restart Home Assistant.
+
+This removes the integration entry and all its entities. A small cache file (`config/.storage/electricity_price.<entry_id>`) that holds today's raw prices is left on disk; you can safely delete it manually if needed.
 
 ---
 
