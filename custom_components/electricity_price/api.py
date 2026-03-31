@@ -137,8 +137,16 @@ def _parse_xml(
                 if pos_el is None or price_el is None:
                     continue
 
-                position = int(pos_el.text)
-                price_mwh = float(price_el.text)
+                try:
+                    position = int(pos_el.text)
+                    price_mwh = float(price_el.text)
+                except (ValueError, TypeError):
+                    _LOGGER.warning(
+                        "Skipping malformed price point: position=%r, price=%r",
+                        pos_el.text,
+                        price_el.text,
+                    )
+                    continue
 
                 point_utc = period_start_utc + datetime.timedelta(
                     minutes=(position - 1) * res_minutes
