@@ -221,13 +221,17 @@ class PriceCoordinator(DataUpdateCoordinator[PriceData]):
 
         # Flag must be set before async_update_entry because the options-change
         # listener is scheduled for the next event-loop iteration — it will
-        # still be True when the listener fires.
+        # still be True when the listener fires. The finally block clears it
+        # after both calls so an exception cannot leave it stuck as True.
         self._pricing_update_in_progress = True
-        self.hass.config_entries.async_update_entry(
-            self.entry,
-            options={**self.entry.options, CONF_VAT: vat, CONF_TRANSFER_FEE: transfer_fee},
-        )
-        self.async_set_updated_data(new_data)
+        try:
+            self.hass.config_entries.async_update_entry(
+                self.entry,
+                options={**self.entry.options, CONF_VAT: vat, CONF_TRANSFER_FEE: transfer_fee},
+            )
+            self.async_set_updated_data(new_data)
+        finally:
+            self._pricing_update_in_progress = False
 
     async def _load_stored(self, today: date) -> dict | None:
         """Load persisted raw price data, discarding it if it's from a different day."""

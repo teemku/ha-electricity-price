@@ -138,6 +138,5 @@ async def _async_reload_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
     """Reload the entry when options change, unless a pricing update caused the change."""
     coordinator: PriceCoordinator = entry.runtime_data
     if coordinator._pricing_update_in_progress:
-        coordinator._pricing_update_in_progress = False
         return
     await hass.config_entries.async_reload(entry.entry_id)
