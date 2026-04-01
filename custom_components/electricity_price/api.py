@@ -179,8 +179,33 @@ def _parse_xml(
         key: sum(prices) / len(prices)
         for key, prices in slot_buckets.items()
     }
+
+    result = fill_gaps(result)
     _LOGGER.debug("Parsed %d slots for %s", len(result), local_midnight.date())
     return result
+
+
+def fill_gaps(prices: dict[str, float]) -> dict[str, float]:
+    """Forward-fill missing 15-minute slots (A03 variable-sized block convention).
+
+    When ENTSO-E omits a position it means the preceding price continues.
+    Operates over the range spanned by the existing keys.
+    """
+    if len(prices) < 2:
+        return prices
+    keys = sorted(prices)
+    start = datetime.datetime.fromisoformat(keys[0].replace("Z", "+00:00"))
+    end = datetime.datetime.fromisoformat(keys[-1].replace("Z", "+00:00"))
+    filled: dict[str, float] = {}
+    last = prices[keys[0]]
+    cursor = start
+    while cursor <= end:
+        key = cursor.strftime("%Y-%m-%dT%H:%M:%SZ")
+        if key in prices:
+            last = prices[key]
+        filled[key] = last
+        cursor += datetime.timedelta(minutes=SLOT_MINUTES)
+    return filled
 
 
 def _get_text(element: ElementTree.Element, path: str) -> str | None:
