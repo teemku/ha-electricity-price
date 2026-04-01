@@ -134,6 +134,8 @@ class NextHourPriceSensor(_PriceSensor):
 
 
 class TodayMinSensor(_PriceSensor):
+    _attr_state_class = SensorStateClass.MEASUREMENT
+
     def __init__(self, coordinator: PriceCoordinator, entry: ConfigEntry) -> None:
         super().__init__(coordinator, entry, "today_min")
         self._attr_native_unit_of_measurement = UNIT
@@ -145,6 +147,8 @@ class TodayMinSensor(_PriceSensor):
 
 
 class TodayMaxSensor(_PriceSensor):
+    _attr_state_class = SensorStateClass.MEASUREMENT
+
     def __init__(self, coordinator: PriceCoordinator, entry: ConfigEntry) -> None:
         super().__init__(coordinator, entry, "today_max")
         self._attr_native_unit_of_measurement = UNIT
@@ -156,6 +160,8 @@ class TodayMaxSensor(_PriceSensor):
 
 
 class TodayAverageSensor(_PriceSensor):
+    _attr_state_class = SensorStateClass.MEASUREMENT
+
     def __init__(self, coordinator: PriceCoordinator, entry: ConfigEntry) -> None:
         super().__init__(coordinator, entry, "today_average")
         self._attr_native_unit_of_measurement = UNIT
@@ -167,6 +173,8 @@ class TodayAverageSensor(_PriceSensor):
 
 
 class TomorrowMinSensor(_PriceSensor):
+    _attr_state_class = SensorStateClass.MEASUREMENT
+
     def __init__(self, coordinator: PriceCoordinator, entry: ConfigEntry) -> None:
         super().__init__(coordinator, entry, "tomorrow_min")
         self._attr_native_unit_of_measurement = UNIT
@@ -178,6 +186,8 @@ class TomorrowMinSensor(_PriceSensor):
 
 
 class TomorrowMaxSensor(_PriceSensor):
+    _attr_state_class = SensorStateClass.MEASUREMENT
+
     def __init__(self, coordinator: PriceCoordinator, entry: ConfigEntry) -> None:
         super().__init__(coordinator, entry, "tomorrow_max")
         self._attr_native_unit_of_measurement = UNIT
@@ -189,6 +199,8 @@ class TomorrowMaxSensor(_PriceSensor):
 
 
 class TomorrowAverageSensor(_PriceSensor):
+    _attr_state_class = SensorStateClass.MEASUREMENT
+
     def __init__(self, coordinator: PriceCoordinator, entry: ConfigEntry) -> None:
         super().__init__(coordinator, entry, "tomorrow_average")
         self._attr_native_unit_of_measurement = UNIT
