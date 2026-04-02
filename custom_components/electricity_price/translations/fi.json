@@ -1,0 +1,163 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Määritä sähkön hinta",
+        "description": "Anna ENTSO-E API-avaimesi ja valitse hinta-alueesi. Voit rekisteröidä ilmaisen API-avaimen osoitteessa transparency.entsoe.eu.",
+        "data": {
+          "api_key": "ENTSO-E API-avain",
+          "price_area": "Hinta-alue / tarjousalue"
+        }
+      },
+      "reconfigure": {
+        "title": "Päivitä API-avain",
+        "description": "Anna uusi ENTSO-E API-avain.",
+        "data": {
+          "api_key": "ENTSO-E API-avain"
+        }
+      },
+      "reauth_confirm": {
+        "title": "Todenna uudelleen",
+        "description": "ENTSO-E API-avaimesi ei ole enää voimassa. Anna uusi avain.",
+        "data": {
+          "api_key": "ENTSO-E API-avain"
+        }
+      }
+    },
+    "error": {
+      "auth_failed": "Virheellinen API-avain. Tarkista ENTSO-E-suojaustunnisteesi.",
+      "cannot_connect": "Yhteys ENTSO-E-rajapintaan epäonnistui. Tarkista verkkoyhteytesi.",
+      "no_data": "Hinta-alueelle ei ole saatavilla hintatietoja. Avain ja alue saattavat silti olla oikein."
+    },
+    "abort": {
+      "already_configured": "Tämä hinta-alue on jo määritetty.",
+      "reauth_successful": "Uudelleentodentaminen onnistui."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Sähkön hinta -asetukset",
+        "data": {
+          "vat_percent": "ALV (%)",
+          "transfer_fee": "Siirtomaksulisä, ALV sisältyy (snt/kWh)",
+          "num_tiers": "Hintatasojen lukumäärä"
+        }
+      },
+      "tiers": {
+        "title": "Määritä hintatason rajat",
+        "description": "Aseta nimi, väri ja yläraja kullekin tasolle. Viimeinen taso on kaatoluokka eikä sillä ole ylärajaa.",
+        "data": {
+          "tier_1_name": "Taso 1 — Nimi",
+          "tier_1_color": "Taso 1 — Väri",
+          "tier_1_below": "Taso 1 — Yläraja (snt/kWh)",
+          "tier_2_name": "Taso 2 — Nimi",
+          "tier_2_color": "Taso 2 — Väri",
+          "tier_2_below": "Taso 2 — Yläraja (snt/kWh)",
+          "tier_3_name": "Taso 3 — Nimi",
+          "tier_3_color": "Taso 3 — Väri",
+          "tier_3_below": "Taso 3 — Yläraja (snt/kWh)",
+          "tier_4_name": "Taso 4 — Nimi",
+          "tier_4_color": "Taso 4 — Väri",
+          "tier_4_below": "Taso 4 — Yläraja (snt/kWh)",
+          "tier_5_name": "Taso 5 — Nimi",
+          "tier_5_color": "Taso 5 — Väri"
+        }
+      }
+    },
+    "error": {
+      "invalid_thresholds": "Virheellinen tasojen määritys. Varmista, että kaikilla tasoilla on nimi ja että ylärajat ovat nousevassa järjestyksessä."
+    }
+  },
+  "services": {
+    "set_transfer_fee": {
+      "name": "Aseta siirtomaksu",
+      "description": "Päivitä sähkön hintoihin lisättävä siirtomaksu.",
+      "fields": {
+        "device_id": {
+          "name": "Laite",
+          "description": "Päivitettävä sähkön hinta -laite."
+        },
+        "transfer_fee": {
+          "name": "Siirtomaksu",
+          "description": "Jokaiseen hintaslottiin lisättävä siirtomaksu (snt/kWh). Anna ALV-sisältävä arvo."
+        }
+      }
+    },
+    "set_vat": {
+      "name": "Aseta ALV",
+      "description": "Päivitä sähkön hintoihin sovellettava ALV-prosentti.",
+      "fields": {
+        "device_id": {
+          "name": "Laite",
+          "description": "Päivitettävä sähkön hinta -laite."
+        },
+        "vat_percent": {
+          "name": "ALV-prosentti",
+          "description": "Sovellettava ALV-prosentti (0–100)."
+        }
+      }
+    }
+  },
+  "issues": {
+    "auth_failed": {
+      "title": "ENTSO-E-todennus epäonnistui alueelle {area}",
+      "description": "**{area}**-hinta-alueen API-avain ei ole enää voimassa. Siirry kohtaan **Asetukset → Laitteet ja palvelut**, etsi Sähkön hinta -integraatio ja valitse **Määritä uudelleen** syöttääksesi uuden avaimen."
+    }
+  },
+  "device_automation": {
+    "trigger_type": {
+      "optimal_start": "Optimaalinen aloitusaika",
+      "price_level_change": "Hintataso muuttuu",
+      "price_below": "Hinta laskee rajan alle",
+      "price_above": "Hinta nousee rajan yli",
+      "tomorrow_available": "Huomisen hinnat saatavilla"
+    },
+    "extra_fields": {
+      "duration": "Kesto (tuntia)",
+      "window_start": "Sallittu ikkuna — alkuaika",
+      "window_end": "Sallittu ikkuna — loppuaika",
+      "threshold": "Hintataso (snt/kWh)"
+    }
+  },
+  "entity": {
+    "sensor": {
+      "current_price": {
+        "name": "Nykyinen hinta"
+      },
+      "next_hour_price": {
+        "name": "Seuraavan tunnin hinta"
+      },
+      "today_min": {
+        "name": "Tänään minimi"
+      },
+      "today_max": {
+        "name": "Tänään maksimi"
+      },
+      "today_average": {
+        "name": "Tänään keskiarvo"
+      },
+      "tomorrow_min": {
+        "name": "Huomenna minimi"
+      },
+      "tomorrow_max": {
+        "name": "Huomenna maksimi"
+      },
+      "tomorrow_average": {
+        "name": "Huomenna keskiarvo"
+      },
+      "price_level": {
+        "name": "Hintataso"
+      },
+      "cheapest_time": {
+        "name": "Halvin aika tänään"
+      },
+      "vat": {
+        "name": "ALV"
+      },
+      "transfer_fee": {
+        "name": "Siirtomaksu"
+      }
+    }
+  }
+}
