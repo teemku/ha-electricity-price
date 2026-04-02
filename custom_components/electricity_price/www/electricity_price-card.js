@@ -215,11 +215,11 @@ class ElectricityPriceChartCard extends HTMLElement {
   }
 
   set hass(hass) {
-    const prevHass = this._hass;
+    const prev = this._hass;
     this._hass = hass;
     if (!this._config) return;
     const entityId = this._resolveEntity();
-    if (entityId !== this._priceEntityId || hass.states[entityId] !== prevHass?.states[entityId]) {
+    if (entityId !== this._priceEntityId || hass.states[entityId] !== prev?.states[entityId]) {
       this._priceEntityId = entityId;
       this._render();
     }
@@ -227,6 +227,14 @@ class ElectricityPriceChartCard extends HTMLElement {
 
   getCardSize() {
     return 5;
+  }
+
+  getGridOptions() {
+    return {
+      rows: 5,
+      columns: 12,
+      min_rows: 3,
+    };
   }
 
   _resolveEntity() {
@@ -248,6 +256,7 @@ class ElectricityPriceChartCard extends HTMLElement {
   _render() {
     if (!this._hass || !this._config) return;
     const shadow = this.shadowRoot;
+
     const stateObj = this._priceEntityId ? this._hass.states[this._priceEntityId] : null;
 
     if (!stateObj) {

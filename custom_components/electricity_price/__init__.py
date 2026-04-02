@@ -37,13 +37,9 @@ _STATIC_DIR = Path(__file__).parent / "www"
 async def async_setup(hass: HomeAssistant, config: dict[str, Any]) -> bool:
     """Register the static path for the Lovelace card once at HA startup."""
     await hass.http.async_register_static_paths(
-        [StaticPathConfig(f"/{DOMAIN}", str(_STATIC_DIR), cache_headers=False)]
+        [StaticPathConfig(f"/{DOMAIN}", str(_STATIC_DIR), cache_headers=True)]
     )
-
-    # add_extra_js_url works in both storage and YAML Lovelace modes and
-    # handles deduplication internally — safe to call on every startup.
     add_extra_js_url(hass, LOVELACE_CARD_URL)
-
     return True
 
 
