@@ -4,6 +4,8 @@
 
 1. [Getting an ENTSO-E API key](#getting-an-entso-e-api-key)
 2. [Installation](#installation)
+   - [HACS (recommended)](#hacs-recommended)
+   - [Manual](#manual)
 3. [Setting up the integration](#setting-up-the-integration)
 4. [Configuring options](#configuring-options)
 5. [Dashboard card](#dashboard-card)
@@ -26,6 +28,20 @@ The token gives read access to day-ahead price data. There is no usage cost.
 ---
 
 ## Installation
+
+### HACS (recommended)
+
+[HACS](https://hacs.xyz/) lets you install and update custom integrations directly from the Home Assistant UI.
+
+1. Install HACS if you haven't already — follow the [HACS installation guide](https://hacs.xyz/docs/use/download/download/).
+2. Open **HACS** in the Home Assistant sidebar.
+3. Go to **Integrations** and click the **⋮** menu → **Custom repositories**.
+4. Enter this repository's URL and select **Integration** as the category, then click **Add**.
+5. Search for **Electricity Price** in HACS and click **Download**.
+6. Restart Home Assistant.
+7. Continue with [Setting up the integration](#setting-up-the-integration).
+
+### Manual
 
 1. Download or clone this repository.
 2. Copy the `custom_components/electricity_price/` folder into your Home Assistant configuration directory under `custom_components/`:

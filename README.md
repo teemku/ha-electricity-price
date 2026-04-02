@@ -22,6 +22,17 @@ Finland, Sweden (SE1–SE4), Norway (NO1–NO5), Denmark (DK1–DK2), Estonia, L
 
 ## Installation
 
+### HACS (recommended)
+
+1. Open HACS in Home Assistant.
+2. Go to **Integrations** and click the **⋮** menu → **Custom repositories**.
+3. Add this repository URL and select category **Integration**.
+4. Search for **Electricity Price** and click **Download**.
+5. Restart Home Assistant.
+6. Go to **Settings → Devices & Services → Add Integration** and search for *Electricity Price*.
+
+### Manual
+
 1. Copy `custom_components/electricity_price/` into your HA `config/custom_components/` directory.
 2. Restart Home Assistant.
 3. Go to **Settings → Devices & Services → Add Integration** and search for *Electricity Price*.

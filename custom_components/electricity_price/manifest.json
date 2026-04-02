@@ -7,5 +7,7 @@
   "iot_class": "cloud_polling",
   "requirements": [],
   "codeowners": ["@teemku"],
+  "documentation": "https://github.com/teemku/ha-electricity-price",
+  "issue_tracker": "https://github.com/teemku/ha-electricity-price/issues",
   "loggers": ["custom_components.electricity_price"]
 }
