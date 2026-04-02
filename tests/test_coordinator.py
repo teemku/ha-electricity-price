@@ -1,8 +1,8 @@
 """Tests for PriceCoordinator static methods."""
 
 import pytest
-from datetime import date
-from unittest.mock import MagicMock
+from datetime import date, datetime, timezone
+from unittest.mock import AsyncMock, MagicMock
 
 from custom_components.electricity_price.coordinator import PriceCoordinator, PriceData, _Store
 from custom_components.electricity_price.const import (
@@ -281,3 +281,87 @@ class TestAsyncUpdateVatFee:
 
         new_data = coord.async_set_updated_data.call_args[0][0]
         assert new_data.tomorrow_prices == {}
+
+
+class TestHandleSlotBoundary:
+    """_handle_slot_boundary promotes tomorrow→today at day rollover."""
+
+    def _make_midnight_coordinator(self):
+        """Coordinator whose data is from yesterday with tomorrow prices loaded."""
+        tomorrow_prices = {"2026-03-29T22:00:00Z": 8.0, "2026-03-29T22:15:00Z": 9.0}
+        raw_tomorrow = {"2026-03-29T22:00:00Z": 6.0, "2026-03-29T22:15:00Z": 7.0}
+        data = PriceData(
+            today_prices={"2026-03-29T00:00:00Z": 5.0},
+            tomorrow_prices=tomorrow_prices,
+            today_date=date(2026, 3, 29),
+            thresholds=[{"name": "Cheap", "below": 5.0}],
+        )
+        coord = _make_coordinator(
+            raw_today={"2026-03-29T00:00:00Z": 4.0},
+            raw_tomorrow=raw_tomorrow,
+            data=data,
+        )
+        coord.async_request_refresh = AsyncMock()
+        return coord
+
+    @pytest.mark.asyncio
+    async def test_promotes_tomorrow_to_today_at_rollover(self):
+        coord = self._make_midnight_coordinator()
+        # Midnight of the new day — local date (UTC in tests) differs from today_date.
+        new_day = datetime(2026, 3, 30, 0, 0, 0, tzinfo=timezone.utc)
+
+        await coord._handle_slot_boundary(new_day)
+
+        promoted = coord.async_set_updated_data.call_args[0][0]
+        assert promoted.today_prices == {"2026-03-29T22:00:00Z": 8.0,
+                                         "2026-03-29T22:15:00Z": 9.0}
+        assert promoted.tomorrow_prices == {}
+        assert promoted.today_date == date(2026, 3, 30)
+
+    @pytest.mark.asyncio
+    async def test_updates_raw_caches_at_rollover(self):
+        coord = self._make_midnight_coordinator()
+        new_day = datetime(2026, 3, 30, 0, 0, 0, tzinfo=timezone.utc)
+
+        await coord._handle_slot_boundary(new_day)
+
+        assert coord._raw_today == {"2026-03-29T22:00:00Z": 6.0,
+                                    "2026-03-29T22:15:00Z": 7.0}
+        assert coord._raw_tomorrow == {}
+
+    @pytest.mark.asyncio
+    async def test_triggers_refresh_at_rollover(self):
+        coord = self._make_midnight_coordinator()
+        new_day = datetime(2026, 3, 30, 0, 0, 0, tzinfo=timezone.utc)
+
+        await coord._handle_slot_boundary(new_day)
+
+        coord.async_request_refresh.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_preserves_thresholds_at_rollover(self):
+        coord = self._make_midnight_coordinator()
+        new_day = datetime(2026, 3, 30, 0, 0, 0, tzinfo=timezone.utc)
+
+        await coord._handle_slot_boundary(new_day)
+
+        promoted = coord.async_set_updated_data.call_args[0][0]
+        assert promoted.thresholds == [{"name": "Cheap", "below": 5.0}]
+
+    @pytest.mark.asyncio
+    async def test_no_rollover_pushes_current_data(self):
+        """On a normal slot boundary (same day) only async_set_updated_data is called."""
+        data = PriceData(
+            today_prices={"2026-03-29T12:00:00Z": 5.0},
+            tomorrow_prices={},
+            today_date=date(2026, 3, 29),
+            thresholds=[],
+        )
+        coord = _make_coordinator(data=data)
+        coord.async_request_refresh = AsyncMock()
+        same_day = datetime(2026, 3, 29, 12, 15, 0, tzinfo=timezone.utc)
+
+        await coord._handle_slot_boundary(same_day)
+
+        coord.async_request_refresh.assert_not_awaited()
+        coord.async_set_updated_data.assert_called_once_with(data)

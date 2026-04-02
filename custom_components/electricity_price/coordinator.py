@@ -120,10 +120,20 @@ class PriceCoordinator(DataUpdateCoordinator[PriceData]):  # type: ignore[misc]
 
         local_now = dt_util.as_local(now)
 
-        # At day rollover fetch fresh prices immediately so that today_prices
-        # reflects the new day and tomorrow_prices resets. Without this the
-        # current-price sensor shows Unknown until the next hourly update.
+        # At day rollover promote tomorrow_prices to today_prices immediately
+        # so entities reflect the new day without waiting for the API refresh.
+        # The full refresh runs in the background to replenish tomorrow_prices.
         if local_now.date() != self.data.today_date:
+            self.async_set_updated_data(
+                PriceData(
+                    today_prices=self.data.tomorrow_prices,
+                    tomorrow_prices={},
+                    today_date=local_now.date(),
+                    thresholds=self.data.thresholds,
+                )
+            )
+            self._raw_today = self._raw_tomorrow
+            self._raw_tomorrow = {}
             await self.async_request_refresh()
             return
 
