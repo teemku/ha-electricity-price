@@ -48,9 +48,10 @@ async def fetch_day_ahead_prices(
     utc_start = local_midnight.astimezone(datetime.timezone.utc)
     utc_end   = (local_midnight + datetime.timedelta(days=1)).astimezone(datetime.timezone.utc)
 
-    # Look back 25 h to guarantee the previous CET-aligned period (which
-    # contains the first local-midnight slots for east-of-CET timezones) is
-    # included in the response. _parse_xml filters strictly to the local day.
+    # Conservative buffer: look back 25 h and forward 2 h so that all
+    # ENTSO-E periods overlapping the local calendar day are included,
+    # regardless of the HA timezone. _parse_xml filters strictly to the
+    # local day.
     period_start = (utc_start - datetime.timedelta(hours=25)).strftime("%Y%m%d%H%M")
     period_end   = (utc_end   + datetime.timedelta(hours=2)).strftime("%Y%m%d%H%M")
 

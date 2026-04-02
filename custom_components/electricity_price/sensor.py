@@ -232,7 +232,11 @@ class PriceLevelSensor(_PriceSensor):
 
 
 class CheapestTimeSensor(_PriceSensor):
-    """Local time of the cheapest 15-minute slot today."""
+    """UTC timestamp of the cheapest 15-minute slot today.
+
+    Returned as a UTC datetime; Home Assistant displays it in the local
+    timezone because the device class is TIMESTAMP.
+    """
 
     _attr_device_class = SensorDeviceClass.TIMESTAMP
 
