@@ -232,7 +232,7 @@ class TestAsyncUpdateVatFee:
         assert new_data.tomorrow_prices["2026-03-30T08:00:00Z"] == pytest.approx(22.0)
 
     @pytest.mark.asyncio
-    async def test_sets_pricing_update_in_progress(self):
+    async def test_clears_pricing_update_flag_after_completion(self):
         raw_today = {"2026-03-29T12:00:00Z": 10.0}
         data = PriceData(today_prices={}, tomorrow_prices={},
                            today_date=date(2026, 3, 29), thresholds=[])
@@ -240,7 +240,7 @@ class TestAsyncUpdateVatFee:
 
         await coord.async_update_vat_fee(24.0, 0.0)
 
-        assert coord._pricing_update_in_progress is True
+        assert coord._pricing_update_in_progress is False
 
     @pytest.mark.asyncio
     async def test_persists_new_options_to_entry(self):

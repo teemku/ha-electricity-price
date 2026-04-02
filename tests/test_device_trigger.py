@@ -580,7 +580,7 @@ class TestAsyncGetTriggers:
     def test_returns_one_trigger_per_type(self):
         result = asyncio.run(async_get_triggers(MagicMock(), "dev1"))
         assert len(result) == len(TRIGGER_TYPES)
-        assert {t["type"] for t in result} == TRIGGER_TYPES
+        assert {t["type"] for t in result} == set(TRIGGER_TYPES)
 
     def test_all_triggers_have_device_id(self):
         result = asyncio.run(async_get_triggers(MagicMock(), "dev42"))

@@ -48,6 +48,7 @@ ha_util = _mod("homeassistant.util", dt=ha_dt)
 ha_core = _mod(
     "homeassistant.core",
     HomeAssistant=MagicMock,
+    ServiceCall=MagicMock,
     CALLBACK_TYPE=type,
     callback=lambda f: f,  # passthrough — callbacks behave like plain functions
 )
@@ -218,6 +219,7 @@ _MOCKS = {
     "homeassistant.components.http": ha_http,
     "homeassistant.components.diagnostics": MagicMock(),
     "homeassistant.config_entries": MagicMock(),
+    "homeassistant.exceptions": MagicMock(),
     "homeassistant.helpers": MagicMock(),
     "homeassistant.helpers.update_coordinator": ha_upd_coord,
     "homeassistant.helpers.selector": ha_selector,
@@ -227,6 +229,7 @@ _MOCKS = {
     "homeassistant.helpers.device_registry": MagicMock(),
     "homeassistant.helpers.entity_platform": MagicMock(),
     "homeassistant.helpers.entity_registry": MagicMock(),
+    "homeassistant.helpers.issue_registry": MagicMock(),
 }
 
 for name, mock in _MOCKS.items():
