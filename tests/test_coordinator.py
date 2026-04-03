@@ -1,8 +1,8 @@
 """Tests for PriceCoordinator static methods."""
 
 import pytest
-from datetime import date, datetime, timezone
-from unittest.mock import AsyncMock, MagicMock
+from datetime import date, datetime, timedelta, timezone
+from unittest.mock import AsyncMock, MagicMock, patch
 
 from custom_components.electricity_price.coordinator import PriceCoordinator, PriceData, _Store
 from custom_components.electricity_price.const import (
@@ -365,3 +365,141 @@ class TestHandleSlotBoundary:
 
         coord.async_request_refresh.assert_not_awaited()
         coord.async_set_updated_data.assert_called_once_with(data)
+
+
+def _make_update_coordinator(raw_today=None, raw_tomorrow=None, data=None, today=None):
+    """Coordinator wired for _async_update_data testing."""
+    today = today or date(2026, 4, 4)
+    hass = MagicMock()
+    entry = MagicMock()
+    entry.entry_id = "test_entry"
+    entry.data = {"api_key": "key", "price_area": "FI - Finland"}
+    entry.options = {CONF_VAT: 0.0, CONF_TRANSFER_FEE: 0.0}
+
+    coord = object.__new__(PriceCoordinator)
+    coord.hass = hass
+    coord.entry = entry
+    coord._raw_today = raw_today or {}
+    coord._raw_tomorrow = raw_tomorrow or {}
+    coord.data = data
+    coord._pricing_update_in_progress = False
+    coord.async_set_updated_data = MagicMock()
+
+    store = AsyncMock()
+    store.async_load = AsyncMock(return_value=None)
+    store.async_save = AsyncMock()
+    coord._store = store
+
+    return coord, today
+
+
+class TestAsyncUpdateDataTodayCache:
+    """_async_update_data uses in-memory _raw_today when today_date already matches.
+
+    This prevents the API re-fetch at the midnight rollover from overwriting the
+    correctly-promoted today prices with a response that may be missing the first
+    slot of the new local day.
+    """
+
+    @pytest.mark.asyncio
+    async def test_skips_api_for_today_when_cache_matches(self):
+        """When _raw_today is populated and today_date matches, no API call for today."""
+        today = date(2026, 4, 4)
+        raw_today = {f"2026-04-03T21:{m:02d}:00Z": 5.0 for m in range(0, 60, 15)}
+        # Pad to 88 slots so the >= 88 guard passes.
+        for h in range(1, 22):
+            for m in range(0, 60, 15):
+                raw_today[f"2026-04-{3 + (h >= 21):02d}T{h % 24:02d}:{m:02d}:00Z"] = 5.0
+
+        data = PriceData(
+            today_prices={k: 5.0 for k in raw_today},
+            tomorrow_prices={},
+            today_date=today,
+            thresholds=[],
+        )
+        coord, _ = _make_update_coordinator(raw_today=raw_today, data=data, today=today)
+
+        local_now = datetime(2026, 4, 4, 0, 0, 0, tzinfo=timezone.utc)
+
+        with (
+            patch(
+                "custom_components.electricity_price.coordinator.dt_util.now",
+                return_value=local_now,
+            ),
+            patch(
+                "custom_components.electricity_price.coordinator.async_get_clientsession",
+            ),
+            patch(
+                "custom_components.electricity_price.coordinator.api.fetch_day_ahead_prices",
+                new_callable=AsyncMock,
+            ) as mock_fetch,
+            patch.object(coord, "_save_stored", new_callable=AsyncMock),
+        ):
+            # tomorrow fetch raises NoDataError (not published yet)
+            from custom_components.electricity_price.api import EntsoENoDataError
+            mock_fetch.side_effect = EntsoENoDataError("no data")
+
+            result = await coord._async_update_data()
+
+        # The in-memory cache was used; no API call should have been made for today
+        # (the only call allowed is for tomorrow, which is also silenced here).
+        for call_args in mock_fetch.call_args_list:
+            fetched_date = call_args.args[3] if len(call_args.args) > 3 else call_args.kwargs.get("date")
+            assert fetched_date != today, (
+                f"API was called for today ({today}) but should have used in-memory cache"
+            )
+
+        assert result.today_prices == {k: 5.0 for k in raw_today}
+        assert result.today_date == today
+
+    @pytest.mark.asyncio
+    async def test_falls_through_to_api_when_cache_is_empty(self):
+        """When _raw_today is empty, the API is called for today's prices."""
+        today = date(2026, 4, 4)
+        data = PriceData(
+            today_prices={},
+            tomorrow_prices={},
+            today_date=today,
+            thresholds=[],
+        )
+        coord, _ = _make_update_coordinator(raw_today={}, data=data, today=today)
+
+        api_prices = {f"2026-04-03T{h:02d}:{m:02d}:00Z": float(h * 4 + m // 15)
+                      for h in range(21, 24) for m in range(0, 60, 15)}
+        for h in range(0, 21):
+            for m in range(0, 60, 15):
+                api_prices[f"2026-04-04T{h:02d}:{m:02d}:00Z"] = float(h * 4 + m // 15)
+
+        local_now = datetime(2026, 4, 4, 0, 0, 0, tzinfo=timezone.utc)
+
+        with (
+            patch(
+                "custom_components.electricity_price.coordinator.dt_util.now",
+                return_value=local_now,
+            ),
+            patch(
+                "custom_components.electricity_price.coordinator.async_get_clientsession",
+            ),
+            patch(
+                "custom_components.electricity_price.coordinator.api.fetch_day_ahead_prices",
+                new_callable=AsyncMock,
+            ) as mock_fetch,
+            patch.object(coord, "_save_stored", new_callable=AsyncMock),
+        ):
+            from custom_components.electricity_price.api import EntsoENoDataError
+
+            def _side_effect(session, api_key, area_eic, d, tz):
+                if d == today:
+                    return api_prices
+                raise EntsoENoDataError("no tomorrow data")
+
+            mock_fetch.side_effect = _side_effect
+
+            result = await coord._async_update_data()
+
+        today_calls = [
+            c for c in mock_fetch.call_args_list
+            if (c.args[3] if len(c.args) > 3 else c.kwargs.get("date")) == today
+        ]
+        assert len(today_calls) == 1, "Expected exactly one API call for today when cache is empty"
+        assert result.today_date == today

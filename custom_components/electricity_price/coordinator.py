@@ -165,9 +165,28 @@ class PriceCoordinator(DataUpdateCoordinator[PriceData]):  # type: ignore[misc]
         session = async_get_clientsession(self.hass)
 
         # ── Today's prices ────────────────────────────────────────────────────
+        # In-memory cache is used when today_date already matches — most
+        # importantly at the midnight rollover, where _raw_today was just
+        # rotated from _raw_tomorrow and contains the complete day's prices.
+        # Going to the API at that moment risks getting a response that omits
+        # the first slot of the new local day (which starts before CET
+        # midnight) because fill_gaps only fills forward from the first
+        # returned key.
+        cached_raw_today = (
+            self._raw_today
+            if self._raw_today
+            and len(self._raw_today) >= 88
+            and self.data is not None
+            and self.data.today_date == today
+            else None
+        )
+
         if stored and stored.get("today_prices") and len(stored["today_prices"]) >= 88:
             raw_today = stored["today_prices"]
             _LOGGER.debug("Using stored prices for today (%s)", today)
+        elif cached_raw_today is not None:
+            raw_today = cached_raw_today
+            _LOGGER.debug("Using in-memory raw cache for today (%s)", today)
         else:
             try:
                 fetched_today = await api.fetch_day_ahead_prices(
