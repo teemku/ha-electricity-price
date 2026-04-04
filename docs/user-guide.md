@@ -8,12 +8,11 @@
    - [Manual](#manual)
 3. [Setting up the integration](#setting-up-the-integration)
 4. [Configuring options](#configuring-options)
-5. [Dashboard card](#dashboard-card)
-6. [Automation triggers](#automation-triggers)
-7. [Services](#services)
-8. [Known limitations](#known-limitations)
-9. [Removal](#removal)
-10. [Troubleshooting](#troubleshooting)
+5. [Automation triggers](#automation-triggers)
+6. [Services](#services)
+7. [Known limitations](#known-limitations)
+8. [Removal](#removal)
+9. [Troubleshooting](#troubleshooting)
 
 ---
 
@@ -86,8 +85,8 @@ Each tier has a name, a colour, and (except the last) an upper price limit.
 
 | Field | Description |
 |---|---|
-| Name | Displayed in the *Price level* sensor and on the card (e.g. *Cheap*). |
-| Colour | Hex colour used in the dashboard card bars. |
+| Name | Displayed in the *Price level* sensor (e.g. *Cheap*). |
+| Colour | Hex colour associated with this tier. |
 | Upper limit (c/kWh) | Prices below this value fall into this tier. Leave blank for the last tier — it catches everything above the previous limit. |
 
 **Example — three tiers:**
@@ -97,28 +96,6 @@ Each tier has a name, a colour, and (except the last) an upper price limit.
 | Cheap | `#22c55e` (green) | 5.0 c/kWh |
 | Normal | `#f59e0b` (amber) | 12.0 c/kWh |
 | Expensive | `#ef4444` (red) | *(none)* |
-
----
-
-## Dashboard card
-
-The Electricity Price card renders a 24-bar chart of hourly prices for today or tomorrow, colour-coded by tier.
-
-### Adding the card
-
-1. Open a dashboard in edit mode.
-2. Click **Add card** and choose **Custom: Electricity Price Card** (it appears in the list automatically).
-3. The visual editor opens — select your device, day, and an optional title.
-
-### Card options
-
-| Option | Description |
-|---|---|
-| Device | The Electricity Price device to display. |
-| Day | *Today* or *Tomorrow*. Tomorrow's bars appear once prices are published (~13:00–15:00 CET). |
-| Title | Optional heading shown above the chart. |
-
-The card highlights the current hour with a brighter bar and shows the price value on each bar.
 
 ---
 
@@ -229,7 +206,3 @@ ENTSO-E publishes next-day prices between 13:00 and 15:00 CET. Before that windo
 ### Prices seem wrong
 
 Open **Settings → Devices & Services → \<your device\> → Download diagnostics**. The file shows the number of price slots fetched for today and tomorrow, the raw slot counts, and your current VAT/fee settings — useful when reporting an issue.
-
-### Card does not appear in the card picker
-
-The JavaScript file is registered automatically when the integration loads. If it is missing, restart Home Assistant and hard-refresh your browser (`Ctrl+Shift+R`).

@@ -13,7 +13,7 @@ Provides two shared helpers used by subclasses:
 
 | Class | Translation key | Description |
 |---|---|---|
-| `CurrentPriceSensor` | `current_price` | Price for the current 15-min slot. Also exposes `today_prices`, `tomorrow_prices`, `thresholds`, `today_date`, `tomorrow_available`, and `current_key` as extra state attributes. These attributes are the data source for the Lovelace card and device triggers. |
+| `CurrentPriceSensor` | `current_price` | Price for the current 15-min slot. |
 | `NextHourPriceSensor` | `next_hour_price` | Price for the next 15-min slot. Falls back to `tomorrow_prices` near midnight. |
 | `TodayMinSensor` | `today_min` | Minimum of all today's slot prices. |
 | `TodayMaxSensor` | `today_max` | Maximum of all today's slot prices. |

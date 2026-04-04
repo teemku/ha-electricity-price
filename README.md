@@ -1,11 +1,10 @@
 # Electricity Price
 
-A Home Assistant custom integration that fetches day-ahead electricity prices from the [ENTSO-E Transparency Platform](https://transparency.entsoe.eu/) and exposes them as sensors, a Lovelace dashboard card, and device automation triggers.
+A Home Assistant custom integration that fetches day-ahead electricity prices from the [ENTSO-E Transparency Platform](https://transparency.entsoe.eu/) and exposes them as sensors and device automation triggers.
 
 ## Features
 
 - **Real-time price sensors** — current price, next slot, today/tomorrow min/max/average, cheapest time, and price level (e.g. *Cheap*, *Normal*, *Expensive*)
-- **Lovelace bar chart card** with visual editor — colour-coded hourly bars for today or tomorrow
 - **Device automation triggers** — fire automations when the price drops below a threshold, changes tier, or the cheapest window for a given duration starts
 - **VAT and transfer fee** — applied on top of the ENTSO-E base price; adjustable at runtime via services without a full reload
 - **Configurable price tiers** — 2–5 named tiers with custom colours and thresholds
@@ -81,7 +80,7 @@ Both services require a `device_id` field (the Electricity Price device) and the
 
 | Document | Description |
 |---|---|
-| [User guide](docs/user-guide.md) | Setup, card configuration, automation examples, troubleshooting |
+| [User guide](docs/user-guide.md) | Setup, automation examples, troubleshooting |
 | [Architecture](docs/architecture.md) | How the components fit together |
 | [API client](docs/api-client.md) | ENTSO-E API wrapper details |
 | [Coordinator](docs/coordinator.md) | Data fetching, caching, and pricing logic |

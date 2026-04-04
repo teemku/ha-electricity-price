@@ -40,9 +40,6 @@ ENTSOE_BASE_URL = "https://web-api.tp.entsoe.eu/api"
 ENTSOE_DOCUMENT_TYPE = "A44"
 ENTSOE_XML_NS = "urn:iec62325.351:tc57wg16:451-3:publicationdocument:7:3"
 
-# Lovelace card
-LOVELACE_CARD_URL = f"/{DOMAIN}/{DOMAIN}-card.js"
-
 # Bidding zone EIC codes — display label -> EIC
 PRICE_AREAS: dict[str, str] = {
     "FI - Finland": "10YFI-1--------U",

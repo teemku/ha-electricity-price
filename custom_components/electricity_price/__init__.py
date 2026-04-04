@@ -3,20 +3,17 @@
 from __future__ import annotations
 
 import logging
-from pathlib import Path
 from typing import Any
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, ServiceCall
-from homeassistant.components.frontend import add_extra_js_url
-from homeassistant.components.http import StaticPathConfig
 from homeassistant.exceptions import ServiceValidationError
 import homeassistant.helpers.entity_registry as er
 
 import voluptuous as vol
 from homeassistant.helpers import config_validation as cv
 
-from .const import CONF_TRANSFER_FEE, CONF_VAT, DOMAIN, LOVELACE_CARD_URL, PLATFORMS
+from .const import CONF_TRANSFER_FEE, CONF_VAT, DOMAIN, PLATFORMS
 from .coordinator import PriceCoordinator
 
 SERVICE_SET_VAT = "set_vat"
@@ -30,17 +27,6 @@ _SET_TRANSFER_FEE_SCHEMA = vol.Schema({
 }, extra=vol.ALLOW_EXTRA)
 
 _LOGGER = logging.getLogger(__name__)
-
-_STATIC_DIR = Path(__file__).parent / "www"
-
-
-async def async_setup(hass: HomeAssistant, config: dict[str, Any]) -> bool:
-    """Register the static path for the Lovelace card once at HA startup."""
-    await hass.http.async_register_static_paths(
-        [StaticPathConfig(f"/{DOMAIN}", str(_STATIC_DIR), cache_headers=True)]
-    )
-    add_extra_js_url(hass, LOVELACE_CARD_URL)
-    return True
 
 
 async def async_migrate_entry(hass: HomeAssistant, config_entry: ConfigEntry) -> bool:

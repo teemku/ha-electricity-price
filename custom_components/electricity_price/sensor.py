@@ -100,20 +100,6 @@ class CurrentPriceSensor(_PriceSensor):
     def native_value(self) -> float | None:
         return self._data.today_prices.get(self._current_key)
 
-    @property
-    def extra_state_attributes(self) -> dict[str, Any]:
-        data = self._data
-        current_key = self._current_key
-        return {
-            "today_prices": data.today_prices,
-            "tomorrow_prices": data.tomorrow_prices,
-            "thresholds": data.thresholds,
-            "current_key": current_key,
-            "today_date": data.today_date.isoformat(),
-            "tomorrow_available": data.tomorrow_available,
-            "unit": UNIT,
-        }
-
 
 class NextHourPriceSensor(_PriceSensor):
     """Price for the next 15-minute slot."""

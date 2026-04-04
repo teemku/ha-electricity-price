@@ -23,17 +23,10 @@ coordinator.py ─────────────────────�
     │
     ├──► sensor.py             12 CoordinatorEntity sensors read from PriceData.
     │
-    ├──► device_trigger.py     5 device trigger types attach coordinator
-    │                          listeners that fire when their condition is met.
-    │
-    └──► www/electricity_price-card.js
-                               Lovelace card reads today/tomorrow_prices and
-                               thresholds from the current_price entity's
-                               extra_state_attributes.
+    └──► device_trigger.py     5 device trigger types attach coordinator
+                               listeners that fire when their condition is met.
 
 __init__.py ──────────────────────────────────────────────────────────────
-    async_setup()              Registers the static path for the JS card once
-                               at startup.
     async_setup_entry()        Creates a PriceCoordinator per config entry,
                                registers set_vat / set_transfer_fee services
                                (guarded against duplicate registration).

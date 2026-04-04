@@ -156,20 +156,6 @@ ha_selector = _mod(
     TextSelectorType=MagicMock(PASSWORD="password", COLOR="color"),
 )
 
-# ---------------------------------------------------------------------------
-# homeassistant.components.frontend / http
-# ---------------------------------------------------------------------------
-
-ha_frontend = _mod(
-    "homeassistant.components.frontend",
-    add_extra_js_url=MagicMock(),
-)
-
-ha_http = _mod(
-    "homeassistant.components.http",
-    StaticPathConfig=MagicMock,
-)
-
 ha_components = _mod("homeassistant.components")
 
 # ---------------------------------------------------------------------------
@@ -215,8 +201,6 @@ _MOCKS = {
     "homeassistant.components": ha_components,
     "homeassistant.components.sensor": ha_sensor_mod,
     "homeassistant.components.device_automation": ha_da,
-    "homeassistant.components.frontend": ha_frontend,
-    "homeassistant.components.http": ha_http,
     "homeassistant.components.diagnostics": MagicMock(),
     "homeassistant.config_entries": MagicMock(),
     "homeassistant.exceptions": MagicMock(),
