@@ -158,6 +158,9 @@
       },
       "transfer_fee": {
         "name": "Transfer Fee"
+      },
+      "resolution": {
+        "name": "Resolution"
       }
     }
   }

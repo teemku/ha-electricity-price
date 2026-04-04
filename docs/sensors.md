@@ -25,6 +25,7 @@ Provides two shared helpers used by subclasses:
 | `CheapestTimeSensor` | `cheapest_time` | UTC timestamp of the cheapest 15-min slot today. Device class `TIMESTAMP`. |
 | `VatSensor` | `vat` | Currently applied VAT %. Read from entry options. `EntityCategory.DIAGNOSTIC`. |
 | `TransferFeeSensor` | `transfer_fee` | Currently applied transfer fee. Read from entry options. `EntityCategory.DIAGNOSTIC`. |
+| `ResolutionSensor` | `resolution` | Native ENTSO-E price resolution in minutes (15, 30, or 60). Updated on each live API fetch. `EntityCategory.DIAGNOSTIC`. Disabled by default. |
 
 ## Helper functions
 

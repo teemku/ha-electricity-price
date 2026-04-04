@@ -36,6 +36,9 @@
       },
       "transfer_fee": {
         "default": "mdi:transmission-tower"
+      },
+      "resolution": {
+        "default": "mdi:chart-timeline-variant"
       }
     }
   }

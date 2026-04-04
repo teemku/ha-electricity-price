@@ -66,6 +66,7 @@ class PriceData:
     tomorrow_prices: dict[str, float] # UTC ISO string -> c/kWh; empty dict until ~13:00 CET
     today_date: date
     thresholds: list[dict[str, Any]] = field(default_factory=list)
+    resolution_minutes: int = SLOT_MINUTES  # native ENTSO-E resolution (15, 30, or 60)
 
     @property
     def tomorrow_available(self) -> bool:
@@ -93,6 +94,8 @@ class PriceCoordinator(DataUpdateCoordinator[PriceData]):  # type: ignore[misc]
         # a pricing update can recompute final prices without hitting the API.
         self._raw_today: dict[str, float] = {}
         self._raw_tomorrow: dict[str, float] = {}
+        # Native ENTSO-E resolution; updated on each live API fetch for today.
+        self._resolution: int = SLOT_MINUTES
         # Set to True before updating entry options from async_update_vat_fee
         # so the options-change reload listener can skip the full reload.
         self._pricing_update_in_progress: bool = False
@@ -130,6 +133,7 @@ class PriceCoordinator(DataUpdateCoordinator[PriceData]):  # type: ignore[misc]
                     tomorrow_prices={},
                     today_date=local_now.date(),
                     thresholds=self.data.thresholds,
+                    resolution_minutes=self.data.resolution_minutes,
                 )
             )
             self._raw_today = self._raw_tomorrow
@@ -189,9 +193,10 @@ class PriceCoordinator(DataUpdateCoordinator[PriceData]):  # type: ignore[misc]
             _LOGGER.debug("Using in-memory raw cache for today (%s)", today)
         else:
             try:
-                fetched_today = await api.fetch_day_ahead_prices(
+                fetched_today, resolution = await api.fetch_day_ahead_prices(
                     session, api_key, area_eic, today, tz
                 )
+                self._resolution = resolution
             except EntsoEAuthError as err:
                 async_create_issue(
                     self.hass,
@@ -224,7 +229,7 @@ class PriceCoordinator(DataUpdateCoordinator[PriceData]):  # type: ignore[misc]
             raw_tomorrow = cached_raw_tomorrow
         else:
             try:
-                fetched_tomorrow = await api.fetch_day_ahead_prices(
+                fetched_tomorrow, _ = await api.fetch_day_ahead_prices(
                     session, api_key, area_eic, tomorrow, tz
                 )
                 raw_tomorrow = (
@@ -246,6 +251,7 @@ class PriceCoordinator(DataUpdateCoordinator[PriceData]):  # type: ignore[misc]
             tomorrow_prices=self._apply_pricing(raw_tomorrow, vat, transfer_fee),
             today_date=today,
             thresholds=thresholds,
+            resolution_minutes=self._resolution,
         )
 
         await self._save_stored()
@@ -270,6 +276,7 @@ class PriceCoordinator(DataUpdateCoordinator[PriceData]):  # type: ignore[misc]
             tomorrow_prices=self._apply_pricing(self._raw_tomorrow, vat, transfer_fee),
             today_date=today_date,
             thresholds=thresholds,
+            resolution_minutes=self._resolution,
         )
 
         # Flag must be set before async_update_entry because the options-change

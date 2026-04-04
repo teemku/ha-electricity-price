@@ -89,7 +89,8 @@ class TestResolutionToMinutes:
 class TestParseXmlExpansion:
     def test_pt60m_expands_to_four_slots(self):
         xml = _pub_xml(_timeseries("PT60M", "2026-03-29T00:00Z", [(1, 100.0)]))
-        result = _parse_xml(xml, UTC, MIDNIGHT)
+        result, resolution = _parse_xml(xml, UTC, MIDNIGHT)
+        assert resolution == 60
         assert "2026-03-29T00:00:00Z" in result
         assert "2026-03-29T00:15:00Z" in result
         assert "2026-03-29T00:30:00Z" in result
@@ -101,14 +102,16 @@ class TestParseXmlExpansion:
 
     def test_pt30m_expands_to_two_slots(self):
         xml = _pub_xml(_timeseries("PT30M", "2026-03-29T00:00Z", [(1, 50.0)]))
-        result = _parse_xml(xml, UTC, MIDNIGHT)
+        result, resolution = _parse_xml(xml, UTC, MIDNIGHT)
+        assert resolution == 30
         assert result["2026-03-29T00:00:00Z"] == pytest.approx(50.0)
         assert result["2026-03-29T00:15:00Z"] == pytest.approx(50.0)
         assert "2026-03-29T00:30:00Z" not in result
 
     def test_pt15m_not_expanded(self):
         xml = _pub_xml(_timeseries("PT15M", "2026-03-29T00:00Z", [(1, 30.0)]))
-        result = _parse_xml(xml, UTC, MIDNIGHT)
+        result, resolution = _parse_xml(xml, UTC, MIDNIGHT)
+        assert resolution == 15
         assert "2026-03-29T00:00:00Z" in result
         assert "2026-03-29T00:15:00Z" not in result
 
@@ -116,7 +119,8 @@ class TestParseXmlExpansion:
         xml = _pub_xml(_timeseries("PT15M", "2026-03-29T00:00Z", [
             (1, 10.0), (2, 20.0), (3, 30.0),
         ]))
-        result = _parse_xml(xml, UTC, MIDNIGHT)
+        result, resolution = _parse_xml(xml, UTC, MIDNIGHT)
+        assert resolution == 15
         assert result["2026-03-29T00:00:00Z"] == pytest.approx(10.0)
         assert result["2026-03-29T00:15:00Z"] == pytest.approx(20.0)
         assert result["2026-03-29T00:30:00Z"] == pytest.approx(30.0)
@@ -135,25 +139,25 @@ class TestParseXmlDayFiltering:
             (2, 88.0),  # 23:00–00:00 UTC March 28 → excluded
             (3, 77.0),  # 00:00–01:00 UTC March 29 → included
         ]))
-        result = _parse_xml(xml, UTC, MIDNIGHT)
+        result, _ = _parse_xml(xml, UTC, MIDNIGHT)
         assert not any(k.startswith("2026-03-28") for k in result)
         assert "2026-03-29T00:00:00Z" in result
 
     def test_slot_exactly_at_midnight_included(self):
         xml = _pub_xml(_timeseries("PT15M", "2026-03-29T00:00Z", [(1, 5.0)]))
-        result = _parse_xml(xml, UTC, MIDNIGHT)
+        result, _ = _parse_xml(xml, UTC, MIDNIGHT)
         assert "2026-03-29T00:00:00Z" in result
 
     def test_full_day_pt60m_produces_96_slots(self):
         points = [(i + 1, float(i)) for i in range(24)]
         xml = _pub_xml(_timeseries("PT60M", "2026-03-29T00:00Z", points))
-        result = _parse_xml(xml, UTC, MIDNIGHT)
+        result, _ = _parse_xml(xml, UTC, MIDNIGHT)
         assert len(result) == 96
 
     def test_full_day_pt15m_produces_96_slots(self):
         points = [(i + 1, float(i % 10)) for i in range(96)]
         xml = _pub_xml(_timeseries("PT15M", "2026-03-29T00:00Z", points))
-        result = _parse_xml(xml, UTC, MIDNIGHT)
+        result, _ = _parse_xml(xml, UTC, MIDNIGHT)
         assert len(result) == 96
 
 
@@ -166,13 +170,13 @@ class TestParseXmlAveraging:
     def test_two_series_same_slot_averaged(self):
         ts1 = _timeseries("PT15M", "2026-03-29T00:00Z", [(1, 80.0)])
         ts2 = _timeseries("PT15M", "2026-03-29T00:00Z", [(1, 40.0)])
-        result = _parse_xml(_pub_xml(ts1 + ts2), UTC, MIDNIGHT)
+        result, _ = _parse_xml(_pub_xml(ts1 + ts2), UTC, MIDNIGHT)
         assert result["2026-03-29T00:00:00Z"] == pytest.approx(60.0)
 
     def test_two_series_different_slots_merged(self):
         ts1 = _timeseries("PT15M", "2026-03-29T00:00Z", [(1, 10.0)])
         ts2 = _timeseries("PT15M", "2026-03-29T00:15Z", [(1, 20.0)])
-        result = _parse_xml(_pub_xml(ts1 + ts2), UTC, MIDNIGHT)
+        result, _ = _parse_xml(_pub_xml(ts1 + ts2), UTC, MIDNIGHT)
         assert result["2026-03-29T00:00:00Z"] == pytest.approx(10.0)
         assert result["2026-03-29T00:15:00Z"] == pytest.approx(20.0)
 
@@ -246,8 +250,10 @@ class TestFetchDayAheadPrices:
                     session, "valid_key", AREA,
                     datetime.date(2026, 3, 29), UTC,
                 )
-        assert len(result) == 96
-        assert all(isinstance(v, float) for v in result.values())
+        prices, resolution = result
+        assert len(prices) == 96
+        assert resolution == 60
+        assert all(isinstance(v, float) for v in prices.values())
 
     @pytest.mark.asyncio
     async def test_acknowledgement_response_raises_no_data_error(self):

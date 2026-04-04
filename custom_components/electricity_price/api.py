@@ -35,11 +35,12 @@ async def fetch_day_ahead_prices(
     area_eic: str,
     date: datetime.date,
     timezone: datetime.tzinfo,
-) -> dict[str, float]:
+) -> tuple[dict[str, float], int]:
     """Fetch day-ahead prices for a local calendar date.
 
-    Returns a mapping of UTC ISO-8601 timestamp strings to price in EUR/MWh.
-    Each key is the start of a 15-minute interval, e.g. "2026-03-28T23:00:00Z".
+    Returns a tuple of (prices, resolution_minutes) where prices maps UTC
+    ISO-8601 strings to EUR/MWh for each 15-minute interval start, and
+    resolution_minutes is the native ENTSO-E resolution (15, 30, or 60).
     Raises EntsoEAuthError, EntsoENoDataError, or EntsoEConnectionError.
     """
     local_midnight = datetime.datetime(
@@ -92,13 +93,14 @@ def _parse_xml(
     xml_text: str,
     timezone: datetime.tzinfo,
     local_midnight: datetime.datetime,
-) -> dict[str, float]:
-    """Parse the ENTSO-E XML response into {utc_iso: eur_per_mwh}.
+) -> tuple[dict[str, float], int]:
+    """Parse the ENTSO-E XML response into ({utc_iso: eur_per_mwh}, resolution_minutes).
 
     Keys are UTC ISO-8601 strings ("2026-03-28T23:00:00Z") for each
     15-minute interval start that falls within the local calendar day.
     Coarser resolutions (PT30M, PT60M) are expanded to 15-min sub-slots,
     each carrying the same price as the parent data point.
+    resolution_minutes reflects the finest resolution found across all periods.
     """
     try:
         root = ElementTree.fromstring(xml_text)
@@ -118,6 +120,7 @@ def _parse_xml(
     # Multiple TimeSeries can rarely cover the same slot; average them.
     slot_buckets: dict[str, list[float]] = {}
     local_day_end = local_midnight + datetime.timedelta(days=1)
+    min_resolution: int | None = None
 
     for timeseries in root.findall(f"{{{_NS}}}TimeSeries"):
         for period in timeseries.findall(f"{{{_NS}}}Period"):
@@ -132,6 +135,8 @@ def _parse_xml(
             if res_minutes is None:
                 _LOGGER.warning("Unsupported resolution: %s", resolution)
                 continue
+            if min_resolution is None or res_minutes < min_resolution:
+                min_resolution = res_minutes
 
             period_start_utc = datetime.datetime.fromisoformat(
                 start_str.replace("Z", "+00:00")
@@ -182,8 +187,12 @@ def _parse_xml(
     }
 
     result = fill_gaps(result)
-    _LOGGER.debug("Parsed %d slots for %s", len(result), local_midnight.date())
-    return result
+    resolution_minutes = min_resolution if min_resolution is not None else SLOT_MINUTES
+    _LOGGER.debug(
+        "Parsed %d slots for %s (resolution: %d min)",
+        len(result), local_midnight.date(), resolution_minutes,
+    )
+    return result, resolution_minutes
 
 
 def fill_gaps(prices: dict[str, float]) -> dict[str, float]:

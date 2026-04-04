@@ -157,6 +157,9 @@
       },
       "transfer_fee": {
         "name": "Siirtomaksu"
+      },
+      "resolution": {
+        "name": "Resoluutio"
       }
     }
   }

@@ -24,6 +24,7 @@ def _make_coordinator(raw_today=None, raw_tomorrow=None, data=None, entry_option
     coord.entry = entry
     coord._raw_today = raw_today or {}
     coord._raw_tomorrow = raw_tomorrow or {}
+    coord._resolution = 60
     coord.data = data
     coord._pricing_update_in_progress = False
     coord.async_set_updated_data = MagicMock()
@@ -381,6 +382,7 @@ def _make_update_coordinator(raw_today=None, raw_tomorrow=None, data=None, today
     coord.entry = entry
     coord._raw_today = raw_today or {}
     coord._raw_tomorrow = raw_tomorrow or {}
+    coord._resolution = 60
     coord.data = data
     coord._pricing_update_in_progress = False
     coord.async_set_updated_data = MagicMock()
@@ -490,7 +492,7 @@ class TestAsyncUpdateDataTodayCache:
 
             def _side_effect(session, api_key, area_eic, d, tz):
                 if d == today:
-                    return api_prices
+                    return api_prices, 60
                 raise EntsoENoDataError("no tomorrow data")
 
             mock_fetch.side_effect = _side_effect

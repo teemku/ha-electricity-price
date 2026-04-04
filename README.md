@@ -66,6 +66,7 @@ After setup, open the integration's **Configure** dialog to set:
 | Cheapest time today | Timestamp of the cheapest slot today |
 | VAT | Currently applied VAT % (diagnostic) |
 | Transfer fee | Currently applied transfer fee (diagnostic) |
+| Resolution | Native ENTSO-E price resolution in minutes, e.g. 60 (diagnostic, disabled by default) |
 
 ## Services
 

@@ -48,6 +48,7 @@ async def async_setup_entry(
             CheapestTimeSensor(coordinator, entry),
             VatSensor(coordinator, entry),
             TransferFeeSensor(coordinator, entry),
+            ResolutionSensor(coordinator, entry),
         ]
     )
 
@@ -266,6 +267,22 @@ class TransferFeeSensor(_PriceSensor):
     @property
     def native_value(self) -> float:
         return float(self.coordinator.entry.options.get(CONF_TRANSFER_FEE, DEFAULT_TRANSFER_FEE))
+
+
+class ResolutionSensor(_PriceSensor):
+    """Native ENTSO-E price data resolution in minutes."""
+
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+    _attr_entity_registry_enabled_default = False
+    _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_native_unit_of_measurement = "min"
+
+    def __init__(self, coordinator: PriceCoordinator, entry: ConfigEntry) -> None:
+        super().__init__(coordinator, entry, "resolution")
+
+    @property
+    def native_value(self) -> int:
+        return self._data.resolution_minutes
 
 
 def _utc_key(utc_dt: datetime) -> str:
