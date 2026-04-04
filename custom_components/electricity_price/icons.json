@@ -4,7 +4,7 @@
       "current_price": {
         "default": "mdi:lightning-bolt"
       },
-      "next_hour_price": {
+      "next_price": {
         "default": "mdi:lightning-bolt-outline"
       },
       "today_min": {

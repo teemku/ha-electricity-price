@@ -125,8 +125,8 @@
       "current_price": {
         "name": "Nykyinen hinta"
       },
-      "next_hour_price": {
-        "name": "Seuraavan tunnin hinta"
+      "next_price": {
+        "name": "Seuraava hinta"
       },
       "today_min": {
         "name": "Tänään minimi"

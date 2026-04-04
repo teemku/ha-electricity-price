@@ -59,7 +59,7 @@ After setup, open the integration's **Configure** dialog to set:
 | Entity | Description |
 |---|---|
 | Current price | Price for the current 15-minute slot (c/kWh) |
-| Next slot price | Price for the next 15-minute slot |
+| Next price | Price for the next 15-minute slot |
 | Today min / max / average | Daily price statistics |
 | Tomorrow min / max / average | Next-day statistics (available after ~13:00 CET) |
 | Price level | Current tier name, e.g. *Cheap* |

@@ -126,8 +126,8 @@
       "current_price": {
         "name": "Current Price"
       },
-      "next_hour_price": {
-        "name": "Next Hour Price"
+      "next_price": {
+        "name": "Next Price"
       },
       "today_min": {
         "name": "Today Min"

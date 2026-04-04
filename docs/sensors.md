@@ -14,7 +14,7 @@ Provides two shared helpers used by subclasses:
 | Class | Translation key | Description |
 |---|---|---|
 | `CurrentPriceSensor` | `current_price` | Price for the current 15-min slot. |
-| `NextHourPriceSensor` | `next_hour_price` | Price for the next 15-min slot. Falls back to `tomorrow_prices` near midnight. |
+| `NextPriceSensor` | `next_price` | Price for the next 15-min slot. Falls back to `tomorrow_prices` near midnight. |
 | `TodayMinSensor` | `today_min` | Minimum of all today's slot prices. |
 | `TodayMaxSensor` | `today_max` | Maximum of all today's slot prices. |
 | `TodayAverageSensor` | `today_average` | Mean of all today's slot prices. |

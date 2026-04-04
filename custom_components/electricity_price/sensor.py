@@ -37,7 +37,7 @@ async def async_setup_entry(
     async_add_entities(
         [
             CurrentPriceSensor(coordinator, entry),
-            NextHourPriceSensor(coordinator, entry),
+            NextPriceSensor(coordinator, entry),
             TodayMinSensor(coordinator, entry),
             TodayMaxSensor(coordinator, entry),
             TodayAverageSensor(coordinator, entry),
@@ -101,13 +101,13 @@ class CurrentPriceSensor(_PriceSensor):
         return self._data.today_prices.get(self._current_key)
 
 
-class NextHourPriceSensor(_PriceSensor):
-    """Price for the next 15-minute slot."""
+class NextPriceSensor(_PriceSensor):
+    """Price for the next 15-minute price slot."""
 
     _attr_state_class = SensorStateClass.MEASUREMENT
 
     def __init__(self, coordinator: PriceCoordinator, entry: ConfigEntry) -> None:
-        super().__init__(coordinator, entry, "next_hour_price")
+        super().__init__(coordinator, entry, "next_price")
         self._attr_native_unit_of_measurement = UNIT
 
     @property

@@ -10,7 +10,7 @@ from custom_components.electricity_price.const import DEFAULT_TRANSFER_FEE, DEFA
 from custom_components.electricity_price.sensor import (
     CheapestTimeSensor,
     CurrentPriceSensor,
-    NextHourPriceSensor,
+    NextPriceSensor,
     PriceLevelSensor,
     TodayAverageSensor,
     TodayMaxSensor,
@@ -236,12 +236,12 @@ class TestCurrentPriceSensor:
         assert sensor.native_value is None
 
 
-class TestNextHourPriceSensor:
+class TestNextPriceSensor:
     def test_returns_price_for_next_slot(self, monkeypatch):
         # utcnow = 12:00, next slot = 12:15
         monkeypatch.setattr(dt_mock, "utcnow",
                             lambda: datetime.datetime(2026, 3, 29, 12, 0, 0, tzinfo=UTC))
-        sensor = _make_sensor(NextHourPriceSensor,
+        sensor = _make_sensor(NextPriceSensor,
                               today_prices={"2026-03-29T12:15:00Z": 4.2})
         assert sensor.native_value == pytest.approx(4.2)
 
@@ -249,7 +249,7 @@ class TestNextHourPriceSensor:
         monkeypatch.setattr(dt_mock, "utcnow",
                             lambda: datetime.datetime(2026, 3, 29, 12, 0, 0, tzinfo=UTC))
         sensor = _make_sensor(
-            NextHourPriceSensor,
+            NextPriceSensor,
             today_prices={},
             tomorrow_prices={"2026-03-29T12:15:00Z": 3.3},
         )
@@ -258,7 +258,7 @@ class TestNextHourPriceSensor:
     def test_returns_none_when_no_next_slot(self, monkeypatch):
         monkeypatch.setattr(dt_mock, "utcnow",
                             lambda: datetime.datetime(2026, 3, 29, 12, 0, 0, tzinfo=UTC))
-        sensor = _make_sensor(NextHourPriceSensor, today_prices={}, tomorrow_prices={})
+        sensor = _make_sensor(NextPriceSensor, today_prices={}, tomorrow_prices={})
         assert sensor.native_value is None
 
 
