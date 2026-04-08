@@ -12,6 +12,7 @@ const TRANSLATIONS = {
     editor_tabs_both: 'Show as tabs',
     editor_tabs_today: 'Today only',
     editor_tabs_tomorrow: 'Tomorrow only',
+    editor_show_price_tier: 'Show price level',
     editor_show_current_price: 'Show current price',
     editor_show_legend: 'Show legend',
   },
@@ -28,6 +29,7 @@ const TRANSLATIONS = {
     editor_tabs_both: 'Näytä välilehtinä',
     editor_tabs_today: 'Vain tänään',
     editor_tabs_tomorrow: 'Vain huomenna',
+    editor_show_price_tier: 'Näytä hintataso',
     editor_show_current_price: 'Näytä nykyinen hinta',
     editor_show_legend: 'Näytä kaavion selite',
   },
@@ -234,10 +236,24 @@ class ElectricityPriceCard extends HTMLElement {
     const displayPriceColor = displayPrice != null
       ? this._priceColor(displayPrice, thresholds)
       : 'var(--primary-text-color)';
-    const currentPriceHtml = showCurrentPrice && displayPrice != null
-      ? `<div class="current-price" style="color:${displayPriceColor}">
-           ${displayPrice.toFixed(2)}<span class="current-price-unit"> c/kWh</span>
-           <div class="current-price-label">${t(this._hass, tab === 'tomorrow' ? 'avg' : 'current_price_label')}</div>
+
+    const showPriceTier = this._config.show_price_tier === true;
+    const priceTier = displayPrice != null
+      ? thresholds.find(th => th.below == null || displayPrice < th.below) ?? thresholds[thresholds.length - 1]
+      : null;
+    const tierBadgeHtml = showPriceTier && priceTier
+      ? `<div class="tier-badge" style="background:${priceTier.color}">${priceTier.name}</div>`
+      : '';
+
+    const priceValueHtml = showCurrentPrice && displayPrice != null
+      ? `<span style="color:${displayPriceColor}">${displayPrice.toFixed(2)}<span class="current-price-unit"> c/kWh</span></span>` : '';
+    const priceLabelHtml = showCurrentPrice && displayPrice != null
+      ? `<div class="current-price-label">${t(this._hass, tab === 'tomorrow' ? 'avg' : 'current_price_label')}</div>` : '';
+
+    const currentPriceHtml = tierBadgeHtml || priceValueHtml
+      ? `<div class="current-price">
+           <div class="price-row">${tierBadgeHtml}${priceValueHtml}</div>
+           ${priceLabelHtml}
          </div>`
       : '';
 
@@ -254,8 +270,11 @@ class ElectricityPriceCard extends HTMLElement {
         .title { font-size: 1.2em; font-weight: 500; color: var(--primary-text-color); margin-bottom: 8px; flex-shrink: 0; }
         .header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 10px; flex-shrink: 0; }
         .current-price { font-size: 1.4em; font-weight: 600; line-height: 1; text-align: right; }
+        .price-row { display: flex; align-items: center; justify-content: flex-end; gap: 8px; }
         .current-price-unit { font-size: 0.55em; font-weight: 400; color: var(--secondary-text-color); margin-left: 1px; }
         .current-price-label { font-size: 0.55em; font-weight: 400; color: var(--secondary-text-color); margin-top: 3px; }
+        .tier-badge { display: inline-block; font-size: 0.6em; font-weight: 600; color: #fff;
+          padding: 3px 10px; border-radius: 99px; letter-spacing: 0.03em; }
         .tabs { display: flex; gap: 6px; }
         .tab {
           padding: 7px 18px; border-radius: 16px; font-size: 0.92em; cursor: pointer;
@@ -355,6 +374,9 @@ class ElectricityPriceCardEditor extends HTMLElement {
         <ha-selector id="device" label="${t(this._hass, 'editor_device')}"></ha-selector>
         <ha-textfield id="title" label="${t(this._hass, 'editor_title')}"></ha-textfield>
         <ha-selector id="tabs" label="${t(this._hass, 'editor_visible_tabs')}"></ha-selector>
+        <ha-formfield label="${t(this._hass, 'editor_show_price_tier')}">
+          <ha-switch id="price-tier"></ha-switch>
+        </ha-formfield>
         <ha-formfield label="${t(this._hass, 'editor_show_current_price')}">
           <ha-switch id="current-price"></ha-switch>
         </ha-formfield>
@@ -376,6 +398,11 @@ class ElectricityPriceCardEditor extends HTMLElement {
 
     this.shadowRoot.getElementById('tabs').addEventListener('value-changed', e => {
       this._config = { ...this._config, tabs: e.detail.value };
+      this._fire();
+    });
+
+    this.shadowRoot.getElementById('price-tier').addEventListener('change', e => {
+      this._config = { ...this._config, show_price_tier: e.target.checked };
       this._fire();
     });
 
@@ -417,6 +444,7 @@ class ElectricityPriceCardEditor extends HTMLElement {
     };
     tabsSelector.value = this._config?.tabs ?? 'both';
 
+    this.shadowRoot.getElementById('price-tier').checked = this._config?.show_price_tier === true;
     this.shadowRoot.getElementById('current-price').checked = this._config?.show_current_price !== false;
     this.shadowRoot.getElementById('legend').checked = this._config?.show_legend !== false;
   }
