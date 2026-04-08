@@ -3,10 +3,13 @@
 from __future__ import annotations
 
 import logging
+from pathlib import Path
 from typing import Any
 
+from homeassistant.components.http import StaticPathConfig
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant, ServiceCall
+from homeassistant.core import HomeAssistant, ServiceCall, callback
+from homeassistant.helpers.start import async_at_started
 from homeassistant.exceptions import ServiceValidationError
 import homeassistant.helpers.entity_registry as er
 
@@ -15,6 +18,9 @@ from homeassistant.helpers import config_validation as cv
 
 from .const import CONF_TRANSFER_FEE, CONF_VAT, DOMAIN, PLATFORMS
 from .coordinator import PriceCoordinator
+
+_CARD_URL = "/electricity_price/electricity-price-card.js"
+_CARD_FILE = Path(__file__).parent / "www" / "electricity-price-card.js"
 
 SERVICE_SET_VAT = "set_vat"
 SERVICE_SET_TRANSFER_FEE = "set_transfer_fee"
@@ -63,7 +69,43 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             schema=_SET_TRANSFER_FEE_SCHEMA,
         )
 
+    # Serve the card JS and register the Lovelace resource once per HA instance.
+    if not hass.data.get(f"{DOMAIN}_card_registered"):
+        hass.data[f"{DOMAIN}_card_registered"] = True
+        await hass.http.async_register_static_paths(
+            [StaticPathConfig(_CARD_URL, str(_CARD_FILE), cache_headers=False)]
+        )
+
+        @callback
+        def _on_started(_hass: HomeAssistant) -> None:
+            _hass.async_create_task(_async_register_lovelace_resource(_hass))
+
+        async_at_started(hass, _on_started)
+
     return True
+
+
+async def _async_register_lovelace_resource(hass: HomeAssistant) -> None:
+    """Add the card JS to the Lovelace resource registry (idempotent)."""
+    try:
+        lovelace_data = hass.data.get("lovelace")
+        if lovelace_data is None:
+            raise RuntimeError("Lovelace not initialized")
+        # HA stores resources as a dataclass attribute in newer versions.
+        resources = getattr(lovelace_data, "resources", None)
+        if resources is None:
+            raise RuntimeError("Lovelace resource collection not found")
+        if any(r.get("url") == _CARD_URL for r in resources.async_items()):
+            return
+        await resources.async_create({"res_type": "module", "url": _CARD_URL})
+        _LOGGER.info("Registered Lovelace resource: %s", _CARD_URL)
+    except Exception as err:
+        _LOGGER.warning(
+            "Could not auto-register the electricity price card (%s). "
+            "Add %s as a JavaScript module manually in Settings → Dashboards → Resources.",
+            err,
+            _CARD_URL,
+        )
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
