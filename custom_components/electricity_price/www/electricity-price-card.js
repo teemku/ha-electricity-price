@@ -5,7 +5,7 @@ const TRANSLATIONS = {
     avg: 'daily avg',
     current_price_label: 'current price',
     no_data: 'No price data available',
-    tomorrow_unavailable: "Tomorrow's prices are not yet available",
+    tomorrow_unavailable: "Tomorrow's prices are not yet available. Available in ~{h} h.",
     editor_device: 'Device',
     editor_title: 'Title (optional)',
     editor_visible_tabs: 'Day selection',
@@ -23,7 +23,7 @@ const TRANSLATIONS = {
     avg: 'päivän keskiarvo',
     current_price_label: 'nykyinen hinta',
     no_data: 'Hintadata ei saatavilla',
-    tomorrow_unavailable: 'Huomisen hinnat eivät ole vielä saatavilla',
+    tomorrow_unavailable: 'Huomisen hinnat eivät ole vielä saatavilla. Saatavilla ~{h} h kuluttua.',
     editor_device: 'Laite',
     editor_title: 'Otsikko (valinnainen)',
     editor_visible_tabs: 'Päivän valinta',
@@ -36,6 +36,17 @@ const TRANSLATIONS = {
     editor_show_legend: 'Näytä kaavion selite',
   },
 };
+
+function contrastColor(hex) {
+  // Returns black or white depending on which has better contrast against hex.
+  const c = hex.replace('#', '');
+  const r = parseInt(c.slice(0, 2), 16);
+  const g = parseInt(c.slice(2, 4), 16);
+  const b = parseInt(c.slice(4, 6), 16);
+  // Perceived luminance (WCAG formula)
+  const lum = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+  return lum > 0.55 ? '#000000' : '#ffffff';
+}
 
 function t(hass, key) {
   const lang = hass?.language?.split('-')[0] ?? 'en';
@@ -270,7 +281,7 @@ class ElectricityPriceCard extends HTMLElement {
       ? thresholds.find(th => th.below == null || displayPrice < th.below) ?? thresholds[thresholds.length - 1]
       : null;
     const tierBadgeHtml = showPriceTier && priceTier
-      ? `<div class="tier-badge" style="background:${priceTier.color}">${priceTier.name}</div>`
+      ? `<div class="tier-badge" style="background:${priceTier.color};color:${contrastColor(priceTier.color)}">${priceTier.name}</div>`
       : '';
 
     const priceValueHtml = showCurrentPrice && displayPrice != null
@@ -370,9 +381,17 @@ class ElectricityPriceCard extends HTMLElement {
     const tab = this._tab;
     const activeSlots = tab === 'today' ? todaySlots : tomorrowSlots;
 
-    container.innerHTML = tab === 'tomorrow' && !tomorrowSlots.length
-      ? `<p class="no-data">${t(this._hass, 'tomorrow_unavailable')}</p>`
-      : this._renderChart(activeSlots, tab === 'today' ? currentKey : '', thresholds, W, H);
+    if (tab === 'tomorrow' && !tomorrowSlots.length) {
+      // Estimate hours until ~13:00 CET (UTC+1) when prices are typically published.
+      const now = new Date();
+      const publishUTC = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 12, 0, 0));
+      if (now >= publishUTC) publishUTC.setUTCDate(publishUTC.getUTCDate() + 1);
+      const hoursLeft = Math.ceil((publishUTC - now) / 3_600_000);
+      const msg = t(this._hass, 'tomorrow_unavailable').replace('{h}', hoursLeft);
+      container.innerHTML = `<p class="no-data">${msg}</p>`;
+    } else {
+      container.innerHTML = this._renderChart(activeSlots, tab === 'today' ? currentKey : '', thresholds, W, H);
+    }
   }
 }
 
