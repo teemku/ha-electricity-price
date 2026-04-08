@@ -125,24 +125,22 @@ class ElectricityPriceCard extends HTMLElement {
     const minP = Math.min(0, Math.min(...prices));
     const range = (maxP - minP) * 1.15 || 1;
 
-    // Margins scale with height so labels remain readable at any size.
     const mL = Math.max(32, W * 0.08), mB = Math.max(18, H * 0.1), mT = 8, mR = 8;
     const cW = W - mL - mR;
     const cH = H - mB - mT;
+    const fs = Math.max(8, Math.min(13, H * 0.06));
 
+    const toX = i => mL + (i / slots.length) * cW;
     const toY = v => mT + cH * (1 - (v - minP) / range);
-    const barW = cW / slots.length;
-    const gap = Math.max(0.5, barW * 0.1);
+    const baseY = toY(minP);
 
-    // X-axis label every N bars to avoid crowding
-    const n = slots.length;
-    const labelEvery = n > 72 ? 8 : n > 36 ? 4 : n > 12 ? 4 : 2;
+    // Y-axis ticks
+    const yTicks = [0, 1, 2, 3, 4].map(i => minP + (range / 4) * i);
 
-    // Y-axis: 5 evenly spaced ticks
-    const tickStep = range / 4;
-    const yTicks = [0, 1, 2, 3, 4].map(i => minP + i * tickStep);
-
-    const fs = Math.max(8, Math.min(13, H * 0.06)); // font size scales with height
+    // X-axis: label at hour boundaries (minute === 0), skip if too crowded
+    const slotWidthPx = cW / slots.length;
+    const minLabelSpacing = fs * 5;
+    const labelEverySlots = Math.max(1, Math.ceil(minLabelSpacing / slotWidthPx));
 
     let out = `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg"
       width="${W}" height="${H}" overflow="visible">`;
@@ -156,42 +154,60 @@ class ElectricityPriceCard extends HTMLElement {
         font-size="${fs}" fill="var(--secondary-text-color,#888)">${tick.toFixed(1)}</text>`;
     }
 
-    // Bars
+    // Filled area under each slot, coloured by tier
     for (let i = 0; i < slots.length; i++) {
-      const { utcKey, localLabel, price } = slots[i];
-      const x = (mL + i * barW + gap / 2).toFixed(1);
-      const w = (barW - gap).toFixed(1);
-      const y = toY(price).toFixed(1);
-      const h = (toY(minP) - toY(price)).toFixed(1);
+      const { utcKey, price } = slots[i];
+      const x1 = toX(i), x2 = toX(i + 1);
+      const y = toY(price);
       const color = this._priceColor(price, thresholds);
-      const isCurrent = utcKey === currentKey;
       const isPast = currentKey && utcKey < currentKey;
-      const opacity = isCurrent ? 1 : isPast ? 0.3 : 0.75;
+      out += `<rect x="${x1.toFixed(1)}" y="${y.toFixed(1)}"
+        width="${(x2 - x1).toFixed(1)}" height="${(baseY - y).toFixed(1)}"
+        fill="${color}" opacity="${isPast ? 0.15 : 0.35}"/>`;
+    }
 
-      out += `<rect x="${x}" y="${y}" width="${w}" height="${h}"
-        fill="${color}" opacity="${opacity}" rx="1">
-        <title>${localLabel} · ${price.toFixed(2)} c/kWh</title>
-      </rect>`;
+    // Step line — one horizontal segment per slot, vertical connectors between
+    let path = `M ${toX(0).toFixed(1)} ${toY(slots[0].price).toFixed(1)}`;
+    for (let i = 0; i < slots.length; i++) {
+      const x2 = toX(i + 1);
+      path += ` H ${x2.toFixed(1)}`;
+      if (i + 1 < slots.length) path += ` V ${toY(slots[i + 1].price).toFixed(1)}`;
+    }
 
-      if (isCurrent) {
-        out += `<rect x="${(+x - 1.5).toFixed(1)}" y="${(+y - 1.5).toFixed(1)}"
-          width="${(+w + 3).toFixed(1)}" height="${(+h + 1.5).toFixed(1)}"
-          fill="none" stroke="var(--primary-color,#03a9f4)" stroke-width="2" rx="2"/>`;
-      }
+    // Draw past portion dimmed, future at full opacity
+    const currentIdx = currentKey ? slots.findIndex(s => s.utcKey === currentKey) : -1;
+    if (currentIdx > 0) {
+      const splitX = toX(currentIdx).toFixed(1);
+      out += `<clipPath id="past"><rect x="${mL}" y="${mT}" width="${splitX - mL}" height="${cH}"/></clipPath>`;
+      out += `<clipPath id="future"><rect x="${splitX}" y="${mT}" width="${W - mR - splitX}" height="${cH}"/></clipPath>`;
+      out += `<path d="${path}" fill="none" stroke="var(--primary-color,#03a9f4)" stroke-width="2" opacity="0.35" clip-path="url(#past)"/>`;
+      out += `<path d="${path}" fill="none" stroke="var(--primary-color,#03a9f4)" stroke-width="2" clip-path="url(#future)"/>`;
+    } else {
+      out += `<path d="${path}" fill="none" stroke="var(--primary-color,#03a9f4)" stroke-width="2"/>`;
+    }
 
-      if (i % labelEvery === 0) {
-        const lx = (mL + (i + 0.5) * barW).toFixed(1);
-        out += `<text x="${lx}" y="${(H - fs * 0.3).toFixed(1)}" text-anchor="middle"
-          font-size="${fs}" fill="var(--secondary-text-color,#888)">${localLabel}</text>`;
-      }
+    // Current time marker
+    if (currentIdx >= 0) {
+      const cx = toX(currentIdx).toFixed(1);
+      out += `<line x1="${cx}" y1="${mT}" x2="${cx}" y2="${baseY.toFixed(1)}"
+        stroke="var(--primary-color,#03a9f4)" stroke-width="1.5" stroke-dasharray="3,3" opacity="0.7"/>`;
+      // Dot on the line at current price
+      const cy = toY(slots[currentIdx].price).toFixed(1);
+      out += `<circle cx="${cx}" cy="${cy}" r="4" fill="var(--primary-color,#03a9f4)"/>`;
+    }
+
+    // X-axis labels
+    for (let i = 0; i < slots.length; i += labelEverySlots) {
+      const lx = toX(i).toFixed(1);
+      out += `<text x="${lx}" y="${(H - fs * 0.3).toFixed(1)}" text-anchor="middle"
+        font-size="${fs}" fill="var(--secondary-text-color,#888)">${slots[i].localLabel}</text>`;
     }
 
     // Baseline
-    const baseY = toY(0).toFixed(1);
-    out += `<line x1="${mL}" y1="${baseY}" x2="${W - mR}" y2="${baseY}"
+    out += `<line x1="${mL}" y1="${baseY.toFixed(1)}" x2="${W - mR}" y2="${baseY.toFixed(1)}"
       stroke="var(--secondary-text-color,#888)" stroke-width="0.8"/>`;
 
-    // Unit
+    // Unit label
     out += `<text x="${(mL - 3).toFixed(1)}" y="${(mT + fs).toFixed(1)}" text-anchor="end"
       font-size="${(fs * 0.85).toFixed(1)}" fill="var(--secondary-text-color,#888)">c/kWh</text>`;
 
