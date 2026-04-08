@@ -3,10 +3,15 @@ const TRANSLATIONS = {
     today: 'Today',
     tomorrow: 'Tomorrow',
     avg: 'daily avg',
+    current_price_label: 'current price',
     no_data: 'No price data available',
     tomorrow_unavailable: "Tomorrow's prices are not yet available",
     editor_device: 'Device',
     editor_title: 'Title (optional)',
+    editor_visible_tabs: 'Day selection',
+    editor_tabs_both: 'Show as tabs',
+    editor_tabs_today: 'Today only',
+    editor_tabs_tomorrow: 'Tomorrow only',
     editor_show_current_price: 'Show current price',
     editor_show_legend: 'Show legend',
   },
@@ -14,12 +19,17 @@ const TRANSLATIONS = {
     today: 'Tänään',
     tomorrow: 'Huomenna',
     avg: 'päivän keskiarvo',
+    current_price_label: 'nykyinen hinta',
     no_data: 'Hintadata ei saatavilla',
     tomorrow_unavailable: 'Huomisen hinnat eivät ole vielä saatavilla',
     editor_device: 'Laite',
     editor_title: 'Otsikko (valinnainen)',
+    editor_visible_tabs: 'Päivän valinta',
+    editor_tabs_both: 'Näytä välilehtinä',
+    editor_tabs_today: 'Vain tänään',
+    editor_tabs_tomorrow: 'Vain huomenna',
     editor_show_current_price: 'Näytä nykyinen hinta',
-    editor_show_legend: 'Näytä selite',
+    editor_show_legend: 'Näytä kaavion selite',
   },
 };
 
@@ -196,8 +206,11 @@ class ElectricityPriceCard extends HTMLElement {
     const thresholds = attrs.thresholds ?? [];
 
     const tomorrowSlots = this._toSlots(tomorrowPrices);
-    const tomorrowDisabled = !tomorrowSlots.length;
+    const tabsMode = this._config.tabs ?? 'both';
+    if (tabsMode !== 'both') this._tab = tabsMode;
     const tab = this._tab;
+    const showTabs = tabsMode === 'both';
+    const tomorrowDisabled = !tomorrowSlots.length;
 
     const showLegend = this._config.show_legend !== false;
     const legendHtml = showLegend && thresholds.length
@@ -224,7 +237,7 @@ class ElectricityPriceCard extends HTMLElement {
     const currentPriceHtml = showCurrentPrice && displayPrice != null
       ? `<div class="current-price" style="color:${displayPriceColor}">
            ${displayPrice.toFixed(2)}<span class="current-price-unit"> c/kWh</span>
-           ${tab === 'tomorrow' ? `<div class="current-price-label">${t(this._hass, 'avg')}</div>` : ''}
+           <div class="current-price-label">${t(this._hass, tab === 'tomorrow' ? 'avg' : 'current_price_label')}</div>
          </div>`
       : '';
 
@@ -265,10 +278,10 @@ class ElectricityPriceCard extends HTMLElement {
         <div class="header">
           <div>
             ${title ? `<div class="title">${title}</div>` : ''}
-            <div class="tabs">
+            ${showTabs ? `<div class="tabs">
               <button class="tab ${tab === 'today' ? 'active' : ''}" data-tab="today">${t(this._hass, 'today')}</button>
               <button class="tab ${tab === 'tomorrow' ? 'active' : ''}" data-tab="tomorrow"${tomorrowDisabled ? ' disabled' : ''}>${t(this._hass, 'tomorrow')}</button>
-            </div>
+            </div>` : ''}
           </div>
           ${currentPriceHtml}
         </div>
@@ -341,6 +354,7 @@ class ElectricityPriceCardEditor extends HTMLElement {
       <div class="editor">
         <ha-selector id="device" label="${t(this._hass, 'editor_device')}"></ha-selector>
         <ha-textfield id="title" label="${t(this._hass, 'editor_title')}"></ha-textfield>
+        <ha-selector id="tabs" label="${t(this._hass, 'editor_visible_tabs')}"></ha-selector>
         <ha-formfield label="${t(this._hass, 'editor_show_current_price')}">
           <ha-switch id="current-price"></ha-switch>
         </ha-formfield>
@@ -357,6 +371,11 @@ class ElectricityPriceCardEditor extends HTMLElement {
 
     this.shadowRoot.getElementById('title').addEventListener('change', e => {
       this._config = { ...this._config, title: e.target.value };
+      this._fire();
+    });
+
+    this.shadowRoot.getElementById('tabs').addEventListener('value-changed', e => {
+      this._config = { ...this._config, tabs: e.detail.value };
       this._fire();
     });
 
@@ -383,6 +402,21 @@ class ElectricityPriceCardEditor extends HTMLElement {
     if (titleField !== this.shadowRoot.activeElement) {
       titleField.value = this._config?.title ?? '';
     }
+
+    const tabsSelector = this.shadowRoot.getElementById('tabs');
+    if (this._hass) tabsSelector.hass = this._hass;
+    tabsSelector.label = t(this._hass, 'editor_visible_tabs');
+    tabsSelector.selector = {
+      select: {
+        options: [
+          { value: 'both',     label: t(this._hass, 'editor_tabs_both') },
+          { value: 'today',    label: t(this._hass, 'editor_tabs_today') },
+          { value: 'tomorrow', label: t(this._hass, 'editor_tabs_tomorrow') },
+        ],
+      },
+    };
+    tabsSelector.value = this._config?.tabs ?? 'both';
+
     this.shadowRoot.getElementById('current-price').checked = this._config?.show_current_price !== false;
     this.shadowRoot.getElementById('legend').checked = this._config?.show_legend !== false;
   }
