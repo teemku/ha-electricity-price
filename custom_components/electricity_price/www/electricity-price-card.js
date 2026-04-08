@@ -235,7 +235,7 @@ class ElectricityPriceCard extends HTMLElement {
       stroke="var(--secondary-text-color,#888)" stroke-width="0.8"/>`;
 
     // Unit label
-    out += `<text x="${(mL - 3).toFixed(1)}" y="${(mT + fs).toFixed(1)}" text-anchor="end"
+    out += `<text x="${(mL - 3).toFixed(1)}" y="${(mT + fs * 1.5).toFixed(1)}" text-anchor="end"
       font-size="${(fs * 0.85).toFixed(1)}" fill="var(--secondary-text-color,#888)">c/kWh</text>`;
 
     out += '</svg>';
