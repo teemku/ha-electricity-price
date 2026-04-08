@@ -12,6 +12,7 @@ const TRANSLATIONS = {
     editor_tabs_both: 'Show as tabs',
     editor_tabs_today: 'Today only',
     editor_tabs_tomorrow: 'Tomorrow only',
+    editor_show_average_line: 'Show average price line',
     editor_show_price_tier: 'Show price level',
     editor_show_current_price: 'Show current price',
     editor_show_legend: 'Show legend',
@@ -29,6 +30,7 @@ const TRANSLATIONS = {
     editor_tabs_both: 'Näytä välilehtinä',
     editor_tabs_today: 'Vain tänään',
     editor_tabs_tomorrow: 'Vain huomenna',
+    editor_show_average_line: 'Näytä keskihintaviiva',
     editor_show_price_tier: 'Näytä hintataso',
     editor_show_current_price: 'Näytä nykyinen hinta',
     editor_show_legend: 'Näytä kaavion selite',
@@ -152,6 +154,16 @@ class ElectricityPriceCard extends HTMLElement {
         stroke="var(--divider-color,rgba(0,0,0,.12))" stroke-width="0.5"/>`;
       out += `<text x="${(mL - 3).toFixed(1)}" y="${(+y + fs * 0.4).toFixed(1)}" text-anchor="end"
         font-size="${fs}" fill="var(--secondary-text-color,#888)">${tick.toFixed(1)}</text>`;
+    }
+
+    // Average price line
+    if (this._config.show_average_line !== false) {
+      const avg = prices.reduce((a, b) => a + b, 0) / prices.length;
+      const avgY = toY(avg).toFixed(1);
+      out += `<line x1="${mL}" y1="${avgY}" x2="${(W - mR).toFixed(1)}" y2="${avgY}"
+        stroke="var(--secondary-text-color,#888)" stroke-width="1" stroke-dasharray="4,3" opacity="0.6"/>`;
+      out += `<text x="${(mL - 3).toFixed(1)}" y="${(+avgY + fs * 0.4).toFixed(1)}" text-anchor="end"
+        font-size="${(fs * 0.8).toFixed(1)}" fill="var(--secondary-text-color,#888)" opacity="0.8">${avg.toFixed(1)}</text>`;
     }
 
     // Filled area under each slot, coloured by tier
@@ -390,6 +402,9 @@ class ElectricityPriceCardEditor extends HTMLElement {
         <ha-selector id="device" label="${t(this._hass, 'editor_device')}"></ha-selector>
         <ha-textfield id="title" label="${t(this._hass, 'editor_title')}"></ha-textfield>
         <ha-selector id="tabs" label="${t(this._hass, 'editor_visible_tabs')}"></ha-selector>
+        <ha-formfield label="${t(this._hass, 'editor_show_average_line')}">
+          <ha-switch id="average-line"></ha-switch>
+        </ha-formfield>
         <ha-formfield label="${t(this._hass, 'editor_show_price_tier')}">
           <ha-switch id="price-tier"></ha-switch>
         </ha-formfield>
@@ -414,6 +429,11 @@ class ElectricityPriceCardEditor extends HTMLElement {
 
     this.shadowRoot.getElementById('tabs').addEventListener('value-changed', e => {
       this._config = { ...this._config, tabs: e.detail.value };
+      this._fire();
+    });
+
+    this.shadowRoot.getElementById('average-line').addEventListener('change', e => {
+      this._config = { ...this._config, show_average_line: e.target.checked };
       this._fire();
     });
 
@@ -460,6 +480,7 @@ class ElectricityPriceCardEditor extends HTMLElement {
     };
     tabsSelector.value = this._config?.tabs ?? 'both';
 
+    this.shadowRoot.getElementById('average-line').checked = this._config?.show_average_line !== false;
     this.shadowRoot.getElementById('price-tier').checked = this._config?.show_price_tier === true;
     this.shadowRoot.getElementById('current-price').checked = this._config?.show_current_price !== false;
     this.shadowRoot.getElementById('legend').checked = this._config?.show_legend !== false;
