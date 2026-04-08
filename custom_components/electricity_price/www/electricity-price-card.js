@@ -257,6 +257,13 @@ class ElectricityPriceCard extends HTMLElement {
     const showTabs = tabsMode === 'both';
     const tomorrowDisabled = !tomorrowSlots.length;
 
+    const lang = this._hass?.language?.split('-')[0] ?? 'en';
+    const today = new Date();
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const fmtWeekday = d => new Intl.DateTimeFormat(lang, { weekday: 'short' }).format(d);
+    const fmtDay = d => new Intl.DateTimeFormat(lang, { day: 'numeric', month: 'short' }).format(d);
+
     const showLegend = this._config.show_legend !== false;
     const legendHtml = showLegend && thresholds.length
       ? `<div class="legend">${thresholds.map(t =>
@@ -345,18 +352,11 @@ class ElectricityPriceCard extends HTMLElement {
         .next-price-unit { color: var(--secondary-text-color); font-weight: 400; }
         .tier-badge { display: inline-block; font-size: 0.6em; font-weight: 600; color: #fff;
           padding: 3px 10px; border-radius: 99px; letter-spacing: 0.03em; }
-        .tabs { display: flex; gap: 6px; }
-        .tab {
-          padding: 7px 18px; border-radius: 16px; font-size: 0.92em; cursor: pointer;
-          border: 1px solid var(--divider-color, rgba(0,0,0,.2)); background: transparent;
-          color: var(--secondary-text-color); font-family: inherit; transition: all .15s;
-        }
-        .tab.active {
-          background: var(--primary-color, #03a9f4);
-          color: var(--text-primary-color, #fff);
-          border-color: var(--primary-color, #03a9f4);
-        }
-        .tab:disabled { opacity: 0.4; cursor: default; }
+        .day-selector { margin-bottom: 10px; flex-shrink: 0; }
+        .day-pill { display: flex; background: var(--input-fill-color, rgba(120,120,120,0.1)); border-radius: 10px; padding: 3px; gap: 2px; }
+        .day-opt { flex: 1; border: none; background: transparent; border-radius: 8px; padding: 7px 12px; font-size: 0.85em; font-weight: 500; cursor: pointer; color: var(--secondary-text-color); font-family: inherit; transition: background .15s, color .15s, box-shadow .15s; }
+        .day-opt.active { background: var(--card-background-color, #1c1c1e); color: var(--primary-text-color); box-shadow: 0 1px 4px rgba(0,0,0,0.25); }
+        .day-opt:disabled { opacity: 0.35; cursor: default; }
         .chart-container { flex: 1; min-height: 0; overflow: hidden; }
         .no-data { text-align: center; padding: 32px 0; color: var(--secondary-text-color); font-size: .9em; margin: 0; }
         .legend { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px; flex-shrink: 0; }
@@ -365,26 +365,40 @@ class ElectricityPriceCard extends HTMLElement {
       </style>
       <ha-card>
         <div class="header">
-          <div>
-            ${title ? `<div class="title">${title}</div>` : ''}
-            ${showTabs ? `<div class="tabs">
-              <button class="tab ${tab === 'today' ? 'active' : ''}" data-tab="today">${t(this._hass, 'today')}</button>
-              <button class="tab ${tab === 'tomorrow' ? 'active' : ''}" data-tab="tomorrow"${tomorrowDisabled ? ' disabled' : ''}>${t(this._hass, 'tomorrow')}</button>
-            </div>` : ''}
-          </div>
+          <div>${title ? `<div class="title">${title}</div>` : ''}</div>
           ${currentPriceHtml}
         </div>
+        ${showTabs ? `<div class="day-selector">
+          <div class="day-pill">
+            <button class="day-opt ${tab === 'today' ? 'active' : ''}" data-tab="today">${t(this._hass, 'today')}</button>
+            <button class="day-opt ${tab === 'tomorrow' ? 'active' : ''}" data-tab="tomorrow"${tomorrowDisabled ? ' disabled' : ''}>${t(this._hass, 'tomorrow')}</button>
+          </div>
+        </div>` : ''}
         <div class="chart-container"></div>
         ${legendHtml}
       </ha-card>
     `;
 
-    this.shadowRoot.querySelectorAll('.tab:not(:disabled)').forEach(btn => {
+    this.shadowRoot.querySelectorAll('.day-opt:not(:disabled)').forEach(btn => {
       btn.addEventListener('click', () => {
         this._tab = btn.dataset.tab;
         this._render();
       });
     });
+
+    if (tabsMode === 'both') {
+      const chartEl = this.shadowRoot.querySelector('.chart-container');
+      let touchStartX = 0;
+      chartEl.addEventListener('touchstart', e => {
+        touchStartX = e.touches[0].clientX;
+      }, { passive: true });
+      chartEl.addEventListener('touchend', e => {
+        const dx = e.changedTouches[0].clientX - touchStartX;
+        if (Math.abs(dx) < 40) return;
+        if (dx < 0 && !tomorrowDisabled) { this._tab = 'tomorrow'; this._render(); }
+        else if (dx > 0) { this._tab = 'today'; this._render(); }
+      }, { passive: true });
+    }
 
     this._setupResizeObserver();
   }
