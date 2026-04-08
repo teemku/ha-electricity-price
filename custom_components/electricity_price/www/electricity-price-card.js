@@ -4,6 +4,7 @@ const TRANSLATIONS = {
     tomorrow: 'Tomorrow',
     avg: 'daily avg',
     current_price_label: 'current price',
+    next_price_label: 'next',
     no_data: 'No price data available',
     tomorrow_unavailable: "Tomorrow's prices are not yet available. Available in ~{h} h.",
     editor_device: 'Device',
@@ -12,6 +13,7 @@ const TRANSLATIONS = {
     editor_tabs_both: 'Show as tabs',
     editor_tabs_today: 'Today only',
     editor_tabs_tomorrow: 'Tomorrow only',
+    editor_show_next_price: 'Show next slot price',
     editor_show_average_line: 'Show average price line',
     editor_show_price_tier: 'Show price level',
     editor_show_current_price: 'Show current price',
@@ -22,6 +24,7 @@ const TRANSLATIONS = {
     tomorrow: 'Huomenna',
     avg: 'päivän keskiarvo',
     current_price_label: 'nykyinen hinta',
+    next_price_label: 'seuraava',
     no_data: 'Hintadata ei saatavilla',
     tomorrow_unavailable: 'Huomisen hinnat eivät ole vielä saatavilla. Saatavilla ~{h} h kuluttua.',
     editor_device: 'Laite',
@@ -30,6 +33,7 @@ const TRANSLATIONS = {
     editor_tabs_both: 'Näytä välilehtinä',
     editor_tabs_today: 'Vain tänään',
     editor_tabs_tomorrow: 'Vain huomenna',
+    editor_show_next_price: 'Näytä seuraava hinta',
     editor_show_average_line: 'Näytä keskihintaviiva',
     editor_show_price_tier: 'Näytä hintataso',
     editor_show_current_price: 'Näytä nykyinen hinta',
@@ -289,10 +293,35 @@ class ElectricityPriceCard extends HTMLElement {
     const priceLabelHtml = showCurrentPrice && displayPrice != null
       ? `<div class="current-price-label">${t(this._hass, tab === 'tomorrow' ? 'avg' : 'current_price_label')}</div>` : '';
 
-    const currentPriceHtml = tierBadgeHtml || priceValueHtml
+    // Next slot indicator — replaces current price label when enabled
+    const showNextPrice = this._config.show_next_price === true;
+    let nextSlotHtml = '';
+    if (showNextPrice && tab === 'today' && displayPrice != null) {
+      const todayPrices = attrs.today_prices ?? {};
+      const resMin = attrs.resolution_minutes ?? 60;
+      const currentKey = this._currentUtcKey(resMin);
+      const todaySlots = this._toSlots(todayPrices);
+      const currentIdx = todaySlots.findIndex(s => s.utcKey === currentKey);
+      const nextSlot = todaySlots[currentIdx + 1]
+        ?? this._toSlots(attrs.tomorrow_prices ?? {})[0];
+      if (nextSlot) {
+        const diff = nextSlot.price - displayPrice;
+        const triangle = diff > 0.005 ? '▲' : diff < -0.005 ? '▼' : '▶';
+        const triangleColor = diff > 0.005 ? 'var(--error-color,#ef4444)' : diff < -0.005 ? 'var(--success-color,#22c55e)' : 'var(--secondary-text-color,#888)';
+        const nextColor = this._priceColor(nextSlot.price, thresholds);
+        nextSlotHtml = `<div class="next-price">
+          <span style="color:${triangleColor}">${triangle}</span>
+          <span style="color:${nextColor}">${nextSlot.price.toFixed(2)}</span><span class="next-price-unit"> c/kWh</span>
+        </div>`;
+      }
+    }
+
+    const belowPriceHtml = showNextPrice && nextSlotHtml ? nextSlotHtml : priceLabelHtml;
+
+    const currentPriceHtml = tierBadgeHtml || priceValueHtml || nextSlotHtml
       ? `<div class="current-price">
            <div class="price-row">${tierBadgeHtml}${priceValueHtml}</div>
-           ${priceLabelHtml}
+           ${belowPriceHtml}
          </div>`
       : '';
 
@@ -309,9 +338,11 @@ class ElectricityPriceCard extends HTMLElement {
         .title { font-size: 1.2em; font-weight: 500; color: var(--primary-text-color); margin-bottom: 8px; flex-shrink: 0; }
         .header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 10px; flex-shrink: 0; }
         .current-price { font-size: 1.4em; font-weight: 600; line-height: 1; text-align: right; }
-        .price-row { display: flex; align-items: center; justify-content: flex-end; gap: 8px; }
+        .price-row { display: flex; align-items: center; justify-content: flex-end; gap: 8px; line-height: 1; }
         .current-price-unit { font-size: 0.55em; font-weight: 400; color: var(--secondary-text-color); margin-left: 1px; }
-        .current-price-label { font-size: 0.55em; font-weight: 400; color: var(--secondary-text-color); margin-top: 3px; }
+        .current-price-label { font-size: 0.55em; font-weight: 400; color: var(--secondary-text-color); margin-top: 6px; }
+        .next-price { font-size: 0.55em; font-weight: 500; display: flex; align-items: center; justify-content: flex-end; gap: 3px; margin-top: 6px; }
+        .next-price-unit { color: var(--secondary-text-color); font-weight: 400; }
         .tier-badge { display: inline-block; font-size: 0.6em; font-weight: 600; color: #fff;
           padding: 3px 10px; border-radius: 99px; letter-spacing: 0.03em; }
         .tabs { display: flex; gap: 6px; }
@@ -421,6 +452,9 @@ class ElectricityPriceCardEditor extends HTMLElement {
         <ha-selector id="device" label="${t(this._hass, 'editor_device')}"></ha-selector>
         <ha-textfield id="title" label="${t(this._hass, 'editor_title')}"></ha-textfield>
         <ha-selector id="tabs" label="${t(this._hass, 'editor_visible_tabs')}"></ha-selector>
+        <ha-formfield label="${t(this._hass, 'editor_show_next_price')}">
+          <ha-switch id="next-price"></ha-switch>
+        </ha-formfield>
         <ha-formfield label="${t(this._hass, 'editor_show_average_line')}">
           <ha-switch id="average-line"></ha-switch>
         </ha-formfield>
@@ -448,6 +482,11 @@ class ElectricityPriceCardEditor extends HTMLElement {
 
     this.shadowRoot.getElementById('tabs').addEventListener('value-changed', e => {
       this._config = { ...this._config, tabs: e.detail.value };
+      this._fire();
+    });
+
+    this.shadowRoot.getElementById('next-price').addEventListener('change', e => {
+      this._config = { ...this._config, show_next_price: e.target.checked };
       this._fire();
     });
 
@@ -499,6 +538,7 @@ class ElectricityPriceCardEditor extends HTMLElement {
     };
     tabsSelector.value = this._config?.tabs ?? 'both';
 
+    this.shadowRoot.getElementById('next-price').checked = this._config?.show_next_price === true;
     this.shadowRoot.getElementById('average-line').checked = this._config?.show_average_line !== false;
     this.shadowRoot.getElementById('price-tier').checked = this._config?.show_price_tier === true;
     this.shadowRoot.getElementById('current-price').checked = this._config?.show_current_price !== false;
