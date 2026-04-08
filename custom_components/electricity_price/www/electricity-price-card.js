@@ -1,3 +1,33 @@
+const TRANSLATIONS = {
+  en: {
+    today: 'Today',
+    tomorrow: 'Tomorrow',
+    avg: 'daily avg',
+    no_data: 'No price data available',
+    tomorrow_unavailable: "Tomorrow's prices are not yet available",
+    editor_device: 'Device',
+    editor_title: 'Title (optional)',
+    editor_show_current_price: 'Show current price',
+    editor_show_legend: 'Show legend',
+  },
+  fi: {
+    today: 'Tänään',
+    tomorrow: 'Huomenna',
+    avg: 'päivän keskiarvo',
+    no_data: 'Hintadata ei saatavilla',
+    tomorrow_unavailable: 'Huomisen hinnat eivät ole vielä saatavilla',
+    editor_device: 'Laite',
+    editor_title: 'Otsikko (valinnainen)',
+    editor_show_current_price: 'Näytä nykyinen hinta',
+    editor_show_legend: 'Näytä selite',
+  },
+};
+
+function t(hass, key) {
+  const lang = hass?.language?.split('-')[0] ?? 'en';
+  return (TRANSLATIONS[lang] ?? TRANSLATIONS.en)[key] ?? TRANSLATIONS.en[key] ?? key;
+}
+
 class ElectricityPriceCard extends HTMLElement {
   constructor() {
     super();
@@ -75,7 +105,7 @@ class ElectricityPriceCard extends HTMLElement {
 
   _renderChart(slots, currentKey, thresholds, W, H) {
     if (!slots.length) {
-      return '<p class="no-data">No price data available</p>';
+      return `<p class="no-data">${t(this._hass, 'no_data')}</p>`;
     }
 
     const prices = slots.map(s => s.price);
@@ -179,13 +209,22 @@ class ElectricityPriceCard extends HTMLElement {
 
     const title = this._config.title ?? '';
     const showCurrentPrice = this._config.show_current_price !== false;
-    const currentPrice = this._entityState?.state;
-    const currentPriceColor = currentPrice != null
-      ? this._priceColor(parseFloat(currentPrice), thresholds)
+
+    let displayPrice = null;
+    if (tab === 'tomorrow' && tomorrowSlots.length) {
+      const vals = tomorrowSlots.map(s => s.price);
+      displayPrice = vals.reduce((a, b) => a + b, 0) / vals.length;
+    } else if (this._entityState?.state != null) {
+      displayPrice = parseFloat(this._entityState.state);
+    }
+
+    const displayPriceColor = displayPrice != null
+      ? this._priceColor(displayPrice, thresholds)
       : 'var(--primary-text-color)';
-    const currentPriceHtml = showCurrentPrice && currentPrice != null
-      ? `<div class="current-price" style="color:${currentPriceColor}">
-           ${parseFloat(currentPrice).toFixed(2)}<span class="current-price-unit"> c/kWh</span>
+    const currentPriceHtml = showCurrentPrice && displayPrice != null
+      ? `<div class="current-price" style="color:${displayPriceColor}">
+           ${displayPrice.toFixed(2)}<span class="current-price-unit"> c/kWh</span>
+           ${tab === 'tomorrow' ? `<div class="current-price-label">${t(this._hass, 'avg')}</div>` : ''}
          </div>`
       : '';
 
@@ -199,13 +238,14 @@ class ElectricityPriceCard extends HTMLElement {
           display: flex;
           flex-direction: column;
         }
-        .header { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 12px; flex-shrink: 0; }
-        .title { font-size: 1em; font-weight: 500; color: var(--primary-text-color); }
-        .current-price { font-size: 1.4em; font-weight: 600; line-height: 1; }
+        .title { font-size: 1.2em; font-weight: 500; color: var(--primary-text-color); margin-bottom: 8px; flex-shrink: 0; }
+        .header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 10px; flex-shrink: 0; }
+        .current-price { font-size: 1.4em; font-weight: 600; line-height: 1; text-align: right; }
         .current-price-unit { font-size: 0.55em; font-weight: 400; color: var(--secondary-text-color); margin-left: 1px; }
-        .tabs { display: flex; gap: 6px; margin-bottom: 10px; flex-shrink: 0; }
+        .current-price-label { font-size: 0.55em; font-weight: 400; color: var(--secondary-text-color); margin-top: 3px; }
+        .tabs { display: flex; gap: 6px; }
         .tab {
-          padding: 5px 14px; border-radius: 14px; font-size: 0.82em; cursor: pointer;
+          padding: 7px 18px; border-radius: 16px; font-size: 0.92em; cursor: pointer;
           border: 1px solid var(--divider-color, rgba(0,0,0,.2)); background: transparent;
           color: var(--secondary-text-color); font-family: inherit; transition: all .15s;
         }
@@ -222,10 +262,15 @@ class ElectricityPriceCard extends HTMLElement {
         .legend-dot { width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0; }
       </style>
       <ha-card>
-        ${title || currentPriceHtml ? `<div class="header"><div class="title">${title}</div>${currentPriceHtml}</div>` : ''}
-        <div class="tabs">
-          <button class="tab ${tab === 'today' ? 'active' : ''}" data-tab="today">Today</button>
-          <button class="tab ${tab === 'tomorrow' ? 'active' : ''}" data-tab="tomorrow"${tomorrowDisabled ? ' disabled' : ''}>Tomorrow</button>
+        <div class="header">
+          <div>
+            ${title ? `<div class="title">${title}</div>` : ''}
+            <div class="tabs">
+              <button class="tab ${tab === 'today' ? 'active' : ''}" data-tab="today">${t(this._hass, 'today')}</button>
+              <button class="tab ${tab === 'tomorrow' ? 'active' : ''}" data-tab="tomorrow"${tomorrowDisabled ? ' disabled' : ''}>${t(this._hass, 'tomorrow')}</button>
+            </div>
+          </div>
+          ${currentPriceHtml}
         </div>
         <div class="chart-container"></div>
         ${legendHtml}
@@ -266,7 +311,7 @@ class ElectricityPriceCard extends HTMLElement {
     const activeSlots = tab === 'today' ? todaySlots : tomorrowSlots;
 
     container.innerHTML = tab === 'tomorrow' && !tomorrowSlots.length
-      ? '<p class="no-data">Tomorrow\'s prices are not yet available</p>'
+      ? `<p class="no-data">${t(this._hass, 'tomorrow_unavailable')}</p>`
       : this._renderChart(activeSlots, tab === 'today' ? currentKey : '', thresholds, W, H);
   }
 }
@@ -294,12 +339,12 @@ class ElectricityPriceCardEditor extends HTMLElement {
         .editor { display: flex; flex-direction: column; gap: 16px; }
       </style>
       <div class="editor">
-        <ha-selector id="device" label="Device"></ha-selector>
-        <ha-textfield id="title" label="Title (optional)"></ha-textfield>
-        <ha-formfield label="Show current price">
+        <ha-selector id="device" label="${t(this._hass, 'editor_device')}"></ha-selector>
+        <ha-textfield id="title" label="${t(this._hass, 'editor_title')}"></ha-textfield>
+        <ha-formfield label="${t(this._hass, 'editor_show_current_price')}">
           <ha-switch id="current-price"></ha-switch>
         </ha-formfield>
-        <ha-formfield label="Show legend">
+        <ha-formfield label="${t(this._hass, 'editor_show_legend')}">
           <ha-switch id="legend"></ha-switch>
         </ha-formfield>
       </div>
@@ -334,7 +379,10 @@ class ElectricityPriceCardEditor extends HTMLElement {
     deviceSelector.selector = { device: { integration: 'electricity_price' } };
     deviceSelector.value = this._config?.device_id ?? '';
 
-    this.shadowRoot.getElementById('title').value = this._config?.title ?? '';
+    const titleField = this.shadowRoot.getElementById('title');
+    if (titleField !== this.shadowRoot.activeElement) {
+      titleField.value = this._config?.title ?? '';
+    }
     this.shadowRoot.getElementById('current-price').checked = this._config?.show_current_price !== false;
     this.shadowRoot.getElementById('legend').checked = this._config?.show_legend !== false;
   }
