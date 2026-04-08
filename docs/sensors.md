@@ -13,7 +13,7 @@ Provides two shared helpers used by subclasses:
 
 | Class | Translation key | Description |
 |---|---|---|
-| `CurrentPriceSensor` | `current_price` | Price for the current 15-min slot. |
+| `CurrentPriceSensor` | `current_price` | Price for the current 15-min slot. Exposes `today_prices`, `tomorrow_prices`, `thresholds`, and `resolution_minutes` as state attributes for the dashboard card. |
 | `NextPriceSensor` | `next_price` | Price for the next 15-min slot. Falls back to `tomorrow_prices` near midnight. |
 | `TodayMinSensor` | `today_min` | Minimum of all today's slot prices. |
 | `TodayMaxSensor` | `today_max` | Maximum of all today's slot prices. |

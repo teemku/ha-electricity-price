@@ -8,6 +8,7 @@ A Home Assistant custom integration that fetches day-ahead electricity prices fr
 - **Device automation triggers** — fire automations when the price drops below a threshold, changes tier, or the cheapest window for a given duration starts
 - **VAT and transfer fee** — applied on top of the ENTSO-E base price; adjustable at runtime via services without a full reload
 - **Configurable price tiers** — 2–5 named tiers with custom colours and thresholds
+- **Custom Lovelace card** — built-in dashboard card showing today's and tomorrow's prices as a step-line chart with tier colouring, average line, and current price display
 - **Diagnostics** — downloadable debug data from the HA diagnostics panel
 
 ## Supported price areas
@@ -76,6 +77,28 @@ After setup, open the integration's **Configure** dialog to set:
 | `electricity_price.set_transfer_fee` | Update transfer fee without reloading |
 
 Both services require a `device_id` field (the Electricity Price device) and the new numeric value.
+
+## Dashboard card
+
+The integration includes a custom Lovelace card that is registered automatically when the integration loads. Add it to any dashboard:
+
+```yaml
+type: custom:electricity-price-card
+device_id: <your device id>
+```
+
+| Option | Default | Description |
+|---|---|---|
+| `device_id` | *(required)* | The Electricity Price device ID |
+| `title` | *(none)* | Optional card title |
+| `tabs` | `both` | Which days to show: `both`, `today`, or `tomorrow` |
+| `show_current_price` | `true` | Show the current price in the top-right corner |
+| `show_next_price` | `false` | Show the next slot price instead of the current price label |
+| `show_price_tier` | `false` | Show a coloured tier badge next to the price |
+| `show_average_line` | `true` | Show a dashed average price line on the chart |
+| `show_legend` | `true` | Show the tier colour legend below the chart |
+
+All options are also configurable through the card's visual editor in the dashboard UI.
 
 ## Documentation
 

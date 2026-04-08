@@ -30,8 +30,24 @@ __init__.py ──────────────────────�
     async_setup_entry()        Creates a PriceCoordinator per config entry,
                                registers set_vat / set_transfer_fee services
                                (guarded against duplicate registration).
+                               On first call per HA instance, registers the
+                               card JS as a static HTTP path and auto-adds it
+                               to the Lovelace resource registry.
     _target_entry_ids()        Maps a service call's device_id to one or more
                                config entry IDs via the entity registry.
+
+www/electricity-price-card.js ────────────────────────────────────────────
+    ElectricityPriceCard       Custom Lovelace element. Reads today_prices,
+                               tomorrow_prices, thresholds, and
+                               resolution_minutes from the current_price
+                               sensor attributes. Renders a step-line SVG
+                               chart with tier-coloured fills, an average
+                               price line, and a current-time marker.
+                               Supports swipe gestures (mobile) and a
+                               segmented pill control (desktop) for switching
+                               between today and tomorrow.
+    ElectricityPriceCardEditor Visual config editor using ha-selector and
+                               ha-switch elements.
 
 config_flow.py ───────────────────────────────────────────────────────────
     ElectricityPriceConfigFlow   Initial setup (API key + area).

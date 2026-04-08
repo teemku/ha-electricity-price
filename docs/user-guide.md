@@ -8,11 +8,12 @@
    - [Manual](#manual)
 3. [Setting up the integration](#setting-up-the-integration)
 4. [Configuring options](#configuring-options)
-5. [Automation triggers](#automation-triggers)
-6. [Services](#services)
-7. [Known limitations](#known-limitations)
-8. [Removal](#removal)
-9. [Troubleshooting](#troubleshooting)
+5. [Dashboard card](#dashboard-card)
+6. [Automation triggers](#automation-triggers)
+7. [Services](#services)
+8. [Known limitations](#known-limitations)
+9. [Removal](#removal)
+10. [Troubleshooting](#troubleshooting)
 
 ---
 
@@ -96,6 +97,50 @@ Each tier has a name, a colour, and (except the last) an upper price limit.
 | Cheap | `#22c55e` (green) | 5.0 c/kWh |
 | Normal | `#f59e0b` (amber) | 12.0 c/kWh |
 | Expensive | `#ef4444` (red) | *(none)* |
+
+---
+
+## Dashboard card
+
+The integration automatically registers a custom Lovelace card at `/electricity_price/electricity-price-card.js` and adds it to the Lovelace resource registry on first load. No manual resource setup is needed.
+
+### Adding the card
+
+1. Edit a dashboard and click **Add Card**.
+2. Scroll to the bottom and select **Custom: Electricity Price**.
+3. Pick your device from the dropdown — the card appears immediately.
+
+Alternatively, add it manually in YAML:
+
+```yaml
+type: custom:electricity-price-card
+device_id: <your device id>
+title: Electricity Prices
+```
+
+### Card options
+
+All options are available in the visual editor. The YAML equivalents are:
+
+| Option | Default | Description |
+|---|---|---|
+| `device_id` | *(required)* | The Electricity Price device to display |
+| `title` | *(none)* | Optional card title shown in the top-left |
+| `tabs` | `both` | Which days to show: `both` (segmented pill), `today`, or `tomorrow` |
+| `show_current_price` | `true` | Show the current price in the top-right corner |
+| `show_next_price` | `false` | Show the next 15-minute slot price instead of the "current price" label; displays a direction arrow coloured by trend |
+| `show_price_tier` | `false` | Show a coloured tier badge (e.g. *Expensive*) next to the price |
+| `show_average_line` | `true` | Show a dashed average price line across the chart |
+| `show_legend` | `true` | Show the tier colour legend below the chart |
+
+### Navigating days
+
+When `tabs` is set to `both` (the default):
+
+- **Desktop** — click *Today* or *Tomorrow* in the segmented control below the header.
+- **Mobile** — swipe left on the chart to switch to tomorrow, swipe right to return to today.
+
+Tomorrow's prices become available after ENTSO-E publishes them (typically 13:00–15:00 CET). The *Tomorrow* option is disabled and the chart shows a countdown until then.
 
 ---
 
