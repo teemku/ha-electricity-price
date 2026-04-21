@@ -18,6 +18,7 @@ const TRANSLATIONS = {
     editor_show_price_tier: 'Show price level',
     editor_show_current_price: 'Show current price',
     editor_show_legend: 'Show legend',
+    editor_chart_soft_max: 'Chart Y-axis soft maximum (c/kWh)',
   },
   fi: {
     today: 'Tänään',
@@ -38,6 +39,7 @@ const TRANSLATIONS = {
     editor_show_price_tier: 'Näytä hintataso',
     editor_show_current_price: 'Näytä nykyinen hinta',
     editor_show_legend: 'Näytä kaavion selite',
+    editor_chart_soft_max: 'Kaavion minimi yläraja (c/kWh)',
   },
 };
 
@@ -138,9 +140,11 @@ class ElectricityPriceCard extends HTMLElement {
     }
 
     const prices = slots.map(s => s.price);
+    const softMax = this._config.chart_soft_max;
     const maxP = Math.max(...prices);
     const minP = Math.min(0, Math.min(...prices));
-    const range = (maxP - minP) * 1.15 || 1;
+    const paddedMax = softMax != null ? Math.max(maxP * 1.15, softMax) : maxP * 1.15;
+    const range = (paddedMax - minP) || 1;
 
     const mL = Math.max(32, W * 0.08), mB = Math.max(18, H * 0.1), mT = 8, mR = 8;
     const cW = W - mL - mR;
@@ -481,6 +485,7 @@ class ElectricityPriceCardEditor extends HTMLElement {
         <ha-formfield label="${t(this._hass, 'editor_show_legend')}">
           <ha-switch id="legend"></ha-switch>
         </ha-formfield>
+        <ha-textfield id="chart-soft-max" label="${t(this._hass, 'editor_chart_soft_max')}" type="number" min="0" step="any"></ha-textfield>
       </div>
     `;
 
@@ -523,6 +528,18 @@ class ElectricityPriceCardEditor extends HTMLElement {
       this._config = { ...this._config, show_legend: e.target.checked };
       this._fire();
     });
+
+    this.shadowRoot.getElementById('chart-soft-max').addEventListener('change', e => {
+      const val = e.target.value.trim();
+      const config = { ...this._config };
+      if (val === '') {
+        delete config.chart_soft_max;
+      } else {
+        config.chart_soft_max = parseFloat(val);
+      }
+      this._config = config;
+      this._fire();
+    });
   }
 
   _update() {
@@ -557,6 +574,11 @@ class ElectricityPriceCardEditor extends HTMLElement {
     this.shadowRoot.getElementById('price-tier').checked = this._config?.show_price_tier === true;
     this.shadowRoot.getElementById('current-price').checked = this._config?.show_current_price !== false;
     this.shadowRoot.getElementById('legend').checked = this._config?.show_legend !== false;
+
+    const softMaxField = this.shadowRoot.getElementById('chart-soft-max');
+    if (softMaxField !== this.shadowRoot.activeElement) {
+      softMaxField.value = this._config?.chart_soft_max ?? '';
+    }
   }
 
   _fire() {
