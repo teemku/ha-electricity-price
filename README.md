@@ -6,7 +6,7 @@ A Home Assistant custom integration that fetches day-ahead electricity prices fr
 
 - **Real-time price sensors** — current price, next slot, today/tomorrow min/max/average, cheapest time, and price level (e.g. *Cheap*, *Normal*, *Expensive*)
 - **Device automation triggers** — fire automations when the price drops below a threshold, changes tier, or the cheapest window for a given duration starts
-- **VAT and transfer fee** — applied on top of the ENTSO-E base price; adjustable at runtime via services without a full reload
+- **VAT and transfer fee** — applied on top of the ENTSO-E base price; adjustable at runtime from the device page or via services, without a full reload
 - **Configurable price tiers** — 2–5 named tiers with custom colours and thresholds
 - **Custom Lovelace card** — built-in dashboard card showing today's and tomorrow's prices as a step-line chart with tier colouring, average line, and current price display
 - **Diagnostics** — downloadable debug data from the HA diagnostics panel
@@ -68,6 +68,15 @@ After setup, open the integration's **Configure** dialog to set:
 | VAT | Currently applied VAT % (diagnostic) |
 | Transfer fee | Currently applied transfer fee (diagnostic) |
 | Resolution | Native ENTSO-E price resolution in minutes, e.g. 60 (diagnostic, disabled by default) |
+
+## Controls
+
+| Entity | Description |
+|---|---|
+| VAT | Editable VAT % (device page, Configuration section) |
+| Transfer fee | Editable transfer fee in c/kWh, VAT included (device page, Configuration section) |
+
+Changing either updates prices immediately, without a reload.
 
 ## Services
 

@@ -184,6 +184,14 @@ Fires at the beginning of the cheapest contiguous time window of a given duratio
 
 ---
 
+## Editing VAT and transfer fee from the device page
+
+The device page has a **VAT** and a **Transfer fee** control in its Configuration section. Type a new value and prices update immediately, with no reload and no new request to ENTSO-E. The read-only VAT and Transfer fee sensors under Diagnostic show the same values.
+
+The transfer fee is entered VAT-inclusive. The same values can be changed with the options flow, the services below, or `number.set_value` in an automation.
+
+---
+
 ## Services
 
 Both services update the integration's pricing in real time — no reload or restart required.

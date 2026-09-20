@@ -44,6 +44,10 @@ After fetching, raw prices (EUR/MWh ÷ 10, no VAT/fee) are stored to both `_raw_
 
 Recomputes `PriceData` from the in-memory raw prices with the new VAT/fee values and pushes it immediately to all listeners — no API call, no reload. Sets `_pricing_update_in_progress = True` before writing to entry options so the options-change listener skips the normal full reload.
 
+When no raw prices are cached yet (for example right after a restart while the API is unreachable) nothing is recomputed or pushed, but the new values are still written to entry options so the next refresh applies them.
+
+Called by the `set_vat` / `set_transfer_fee` services and by the VAT and transfer fee number entities.
+
 ### On-disk storage
 
 Managed by `_Store` (a `homeassistant.helpers.storage.Store` subclass). Stores a dict:

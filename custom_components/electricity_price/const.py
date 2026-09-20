@@ -5,7 +5,7 @@ from typing import Any
 VENDOR = "teemku"
 INTEGRATION_NAME = "electricity_price"
 DOMAIN = INTEGRATION_NAME
-PLATFORMS = ["sensor"]
+PLATFORMS = ["number", "sensor"]
 
 # Config entry keys (stored in entry.data — not user-editable after setup)
 CONF_API_KEY = "api_key"

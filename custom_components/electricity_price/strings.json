@@ -122,6 +122,14 @@
     }
   },
   "entity": {
+    "number": {
+      "vat": {
+        "name": "VAT"
+      },
+      "transfer_fee": {
+        "name": "Transfer Fee"
+      }
+    },
     "sensor": {
       "current_price": {
         "name": "Current Price"

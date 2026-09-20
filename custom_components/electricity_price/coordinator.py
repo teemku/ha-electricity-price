@@ -263,21 +263,21 @@ class PriceCoordinator(DataUpdateCoordinator[PriceData]):  # type: ignore[misc]
 
         Updates all listeners immediately without an API fetch or full reload.
         Persists the new values to config entry options; the options-change
-        reload listener is skipped via _pricing_update_in_progress.
+        reload listener is skipped via _pricing_update_in_progress. When no raw
+        prices are cached yet only the options are persisted, and the next
+        refresh applies them.
         """
-        if not self._raw_today and not self._raw_tomorrow:
-            return
-
-        thresholds = self.data.thresholds if self.data is not None else []
-        today_date = self.data.today_date if self.data is not None else dt_util.now().date()
-
-        new_data = PriceData(
-            today_prices=self._apply_pricing(self._raw_today, vat, transfer_fee),
-            tomorrow_prices=self._apply_pricing(self._raw_tomorrow, vat, transfer_fee),
-            today_date=today_date,
-            thresholds=thresholds,
-            resolution_minutes=self._resolution,
-        )
+        new_data: PriceData | None = None
+        if self._raw_today or self._raw_tomorrow:
+            thresholds = self.data.thresholds if self.data is not None else []
+            today_date = self.data.today_date if self.data is not None else dt_util.now().date()
+            new_data = PriceData(
+                today_prices=self._apply_pricing(self._raw_today, vat, transfer_fee),
+                tomorrow_prices=self._apply_pricing(self._raw_tomorrow, vat, transfer_fee),
+                today_date=today_date,
+                thresholds=thresholds,
+                resolution_minutes=self._resolution,
+            )
 
         # Flag must be set before async_update_entry because the options-change
         # listener is scheduled for the next event-loop iteration — it will
@@ -289,7 +289,8 @@ class PriceCoordinator(DataUpdateCoordinator[PriceData]):  # type: ignore[misc]
                 self.entry,
                 options={**self.entry.options, CONF_VAT: vat, CONF_TRANSFER_FEE: transfer_fee},
             )
-            self.async_set_updated_data(new_data)
+            if new_data is not None:
+                self.async_set_updated_data(new_data)
         finally:
             self._pricing_update_in_progress = False
 

@@ -90,6 +90,16 @@ ha_sensor_mod = _mod(
     SensorEntity=object,
 )
 
+class _NumberMode(str, Enum):
+    BOX = "box"
+
+
+ha_number_mod = _mod(
+    "homeassistant.components.number",
+    NumberEntity=object,
+    NumberMode=_NumberMode,
+)
+
 # ---------------------------------------------------------------------------
 # homeassistant.components.device_automation
 # ---------------------------------------------------------------------------
@@ -200,6 +210,7 @@ _MOCKS = {
     "homeassistant.const": ha_const,
     "homeassistant.components": ha_components,
     "homeassistant.components.sensor": ha_sensor_mod,
+    "homeassistant.components.number": ha_number_mod,
     "homeassistant.components.device_automation": ha_da,
     "homeassistant.components.diagnostics": MagicMock(),
     "homeassistant.config_entries": MagicMock(),

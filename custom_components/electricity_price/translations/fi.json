@@ -121,6 +121,14 @@
     }
   },
   "entity": {
+    "number": {
+      "vat": {
+        "name": "ALV"
+      },
+      "transfer_fee": {
+        "name": "Siirtomaksu"
+      }
+    },
     "sensor": {
       "current_price": {
         "name": "Nykyinen hinta"

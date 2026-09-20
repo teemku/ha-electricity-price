@@ -191,10 +191,16 @@ class TestAsyncUpdateVatFee:
     """async_update_vat_fee recomputes prices and notifies listeners without API fetch."""
 
     @pytest.mark.asyncio
-    async def test_returns_early_when_no_raw_prices(self):
+    async def test_persists_options_without_notifying_when_no_raw_prices(self):
         coord = _make_coordinator()
+
         await coord.async_update_vat_fee(24.0, 3.5)
+
         coord.async_set_updated_data.assert_not_called()
+        saved_options = coord.hass.config_entries.async_update_entry.call_args[1]["options"]
+        assert saved_options[CONF_VAT] == 24.0
+        assert saved_options[CONF_TRANSFER_FEE] == 3.5
+        assert coord._pricing_update_in_progress is False
 
     @pytest.mark.asyncio
     async def test_recomputes_today_prices_with_new_vat(self):

@@ -21,7 +21,10 @@ coordinator.py ─────────────────────�
     PriceData                  Frozen snapshot pushed to all listeners: today/
                                tomorrow prices in c/kWh, today's date, tiers.
     │
-    ├──► sensor.py             12 CoordinatorEntity sensors read from PriceData.
+    ├──► sensor.py             13 CoordinatorEntity sensors read from PriceData.
+    │
+    ├──► number.py             2 editable config entities (VAT, transfer fee)
+    │                          that call async_update_vat_fee.
     │
     └──► device_trigger.py     5 device trigger types attach coordinator
                                listeners that fire when their condition is met.

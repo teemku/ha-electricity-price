@@ -40,6 +40,14 @@
       "resolution": {
         "default": "mdi:chart-timeline-variant"
       }
+    },
+    "number": {
+      "vat": {
+        "default": "mdi:percent"
+      },
+      "transfer_fee": {
+        "default": "mdi:transmission-tower"
+      }
     }
   }
 }
