@@ -21,7 +21,12 @@ coordinator.py ─────────────────────�
     PriceData                  Frozen snapshot pushed to all listeners: today/
                                tomorrow prices in c/kWh, today's date, tiers.
     │
-    ├──► sensor.py             13 CoordinatorEntity sensors read from PriceData.
+    ├──► sensor.py             14 CoordinatorEntity sensors read from PriceData
+    │                          and the coordinator's last successful fetch time.
+    │
+    ├──► binary_sensor.py      2 diagnostic binary sensors: fetch failing (from
+    │                          the coordinator's fetch errors) and tomorrow's
+    │                          prices available.
     │
     ├──► number.py             2 editable config entities (VAT, transfer fee)
     │                          that call async_update_vat_fee.

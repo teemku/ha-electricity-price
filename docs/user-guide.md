@@ -200,6 +200,20 @@ Fires at the beginning of the cheapest contiguous time window of a given duratio
 
 ---
 
+## Diagnostic entities
+
+The device page has three read-only entities in its Diagnostic section that describe the state of price fetching.
+
+| Entity | What it shows |
+|---|---|
+| Last successful fetch | The time of the last successful request to ENTSO-E. Unknown until the first one, and kept across restarts. |
+| Price fetch failing | On while fetching today's or tomorrow's prices is failing. Its attributes `scope` (`today` or `tomorrow`) and `error` say which fetch and why, and are empty while it is off. |
+| Tomorrow prices available | On once a complete set of tomorrow's prices has been fetched. Turns off at the change of day until the next day's prices arrive. |
+
+*Last successful fetch* and *Price fetch failing* stay available during an outage, when the price sensors show *Unavailable*, so the reason and the age of the data remain visible. *Tomorrow prices available* becomes unavailable together with the price sensors. *Last successful fetch* advances on any successful request, so when only one of today's and tomorrow's fetches works, use *Price fetch failing* to see that something is wrong. The *Price fetch failed* and *Price fetch recovered* triggers fire at the same moments *Price fetch failing* changes state.
+
+---
+
 ## Editing VAT and transfer fee from the device page
 
 The device page has a **VAT** and a **Transfer fee** control in its Configuration section. Type a new value and prices update immediately, with no reload and no new request to ENTSO-E. The read-only VAT and Transfer fee sensors under Diagnostic show the same values.
@@ -263,14 +277,14 @@ This removes the integration entry and all its entities. A small cache file (`co
 
 ### Sensors show *Unavailable*
 
-The coordinator failed to fetch today's prices. Check:
+The coordinator failed to fetch today's prices. The *Price fetch failing* diagnostic entity shows the error in its `error` attribute. Check:
 - Your ENTSO-E API key is correct. Try reconfiguring the integration (**⋮ → Reconfigure**).
 - Home Assistant has outbound internet access.
 - The ENTSO-E API is operational ([status page](https://transparency.entsoe.eu/)).
 
 ### Tomorrow prices stay *Unknown*
 
-ENTSO-E publishes next-day prices between 13:00 and 15:00 CET. Before that window the sensors correctly show *Unknown*. If they remain unknown after 15:00 CET, check the HA logs for warnings from `custom_components.electricity_price`.
+ENTSO-E publishes next-day prices between 13:00 and 15:00 CET. Before that window the sensors correctly show *Unknown* and *Tomorrow prices available* is off. If they remain unknown after 15:00 CET, check the *Price fetch failing* entity and the HA logs for warnings from `custom_components.electricity_price`.
 
 ### Prices seem wrong
 

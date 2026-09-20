@@ -48,6 +48,10 @@ A failed fetch for today raises and makes the update fail, so the entities becom
 
 Each scope is cleared at the start of its part of the update and set again where its fetch error is caught. Listeners read the mapping when the coordinator notifies them after a refresh, and the fetch failed and recovered triggers derive their transitions from it. When today's fetch fails, tomorrow's fetch is not attempted and tomorrow's state is left as it was. The mapping is in memory only and starts empty after a reload.
 
+### Last successful fetch
+
+`last_success` is the UTC time of the last request to ENTSO-E that completed successfully. It is set when today's live fetch succeeds, when tomorrow's live fetch succeeds, and when ENTSO-E answers that tomorrow's prices are not published yet, since the service responded normally. Prices served from the on-disk store or the in-memory cache make no request and do not set it, and neither does any failure, so an outage keeps the earlier time. It is unknown until the first successful request.
+
 ### `async_update_vat_fee(vat, transfer_fee)`
 
 Recomputes `PriceData` from the in-memory raw prices with the new VAT/fee values and pushes it immediately to all listeners — no API call, no reload. Sets `_pricing_update_in_progress = True` before writing to entry options so the options-change listener skips the normal full reload.
@@ -64,10 +68,12 @@ Managed by `_Store` (a `homeassistant.helpers.storage.Store` subclass). Stores a
 {
   "today_date": "2026-03-31",
   "today_prices": { "2026-03-30T22:00:00Z": 1.2345, ... },
-  "tomorrow_prices": { "2026-03-31T22:00:00Z": 0.9876, ... }
+  "tomorrow_prices": { "2026-03-31T22:00:00Z": 0.9876, ... },
+  "last_success": "2026-03-31T10:00:12+00:00"
 }
 ```
 
+`last_success` is `null` until the first successful request. It is restored from the file before the check that discards stored prices from a previous day, so it survives day changes and restarts. A missing or malformed value leaves it unknown, and the storage version is unchanged.
 `_Store._async_migrate_func` returns `None` for older schema versions (1 and 2), causing HA to treat the file as empty and triggering a fresh API fetch. This was needed because versions 1–2 stored final prices (VAT already applied) which could not be reused after the schema change.
 
 ### Pricing formula

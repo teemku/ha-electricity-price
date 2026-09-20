@@ -68,6 +68,9 @@ After setup, open the integration's **Configure** dialog to set:
 | VAT | Currently applied VAT % (diagnostic) |
 | Transfer fee | Currently applied transfer fee (diagnostic) |
 | Resolution | Native ENTSO-E price resolution in minutes, e.g. 60 (diagnostic, disabled by default) |
+| Last successful fetch | Time of the last successful request to ENTSO-E (diagnostic) |
+| Price fetch failing | On while fetching prices fails, with the scope and error as attributes (diagnostic binary sensor) |
+| Tomorrow prices available | On once a complete set of tomorrow's prices has been fetched (diagnostic binary sensor) |
 
 ## Controls
 

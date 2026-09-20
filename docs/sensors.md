@@ -26,6 +26,11 @@ Provides two shared helpers used by subclasses:
 | `VatSensor` | `vat` | Currently applied VAT %. Read from entry options. `EntityCategory.DIAGNOSTIC`. |
 | `TransferFeeSensor` | `transfer_fee` | Currently applied transfer fee. Read from entry options. `EntityCategory.DIAGNOSTIC`. |
 | `ResolutionSensor` | `resolution` | Native ENTSO-E price resolution in minutes (15, 30, or 60). Updated on each live API fetch. `EntityCategory.DIAGNOSTIC`. Disabled by default. |
+| `LastSuccessfulFetchSensor` | `last_successful_fetch` | Time of the last request to ENTSO-E that completed successfully, from the coordinator's `last_success`. Device class `TIMESTAMP`, `EntityCategory.DIAGNOSTIC`. Unknown until the first successful request. Always available (see below). |
+
+### Availability during an outage
+
+`CoordinatorEntity` reports an entity unavailable whenever the last coordinator update failed. `LastSuccessfulFetchSensor` overrides this and stays available, because the time of the last success is most useful during an outage.
 
 ## Helper functions
 
@@ -42,3 +47,16 @@ Used by the `optimal_start` device trigger.
 ### `_get_price_level(price, thresholds)`
 
 Returns the tier name for a given price by walking the threshold list and returning the first tier whose `below` value exceeds the price. The last tier (no `below` limit) always matches.
+
+## Binary sensors (`binary_sensor.py`)
+
+A separate platform with its own base class, `_PriceBinarySensor`, which also extends `CoordinatorEntity[PriceCoordinator]` and shares the same device. Both sensors use `EntityCategory.DIAGNOSTIC`.
+
+| Class | Translation key | Description |
+|---|---|---|
+| `FetchFailingBinarySensor` | `fetch_failing` | On while fetching today's or tomorrow's prices is failing, from `PriceCoordinator.fetch_errors`. Device class `PROBLEM`. Attributes `scope` (`today` or `tomorrow`) and `error` (the error text) describe the most recently recorded failure and are `None` while off. Always available. |
+| `TomorrowAvailableBinarySensor` | `tomorrow_available` | On while `PriceData.tomorrow_available` is true, the same rule the `tomorrow_available` device trigger uses. Turns off at the change of day until the next day's prices are fetched. |
+
+`FetchFailingBinarySensor` overrides availability like `LastSuccessfulFetchSensor` does. `TomorrowAvailableBinarySensor` keeps the default, so it becomes unavailable together with the price sensors after a failed update: it describes the price data, which is stale at that point.
+
+The error text is an attribute and not a state, because Home Assistant does not store a state longer than 255 characters.
