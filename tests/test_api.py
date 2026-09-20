@@ -263,6 +263,31 @@ class TestFetchDayAheadPrices:
                     )
 
     @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        "url_tail",
+        [
+            "securityToken=SECRET-KEY-123&periodStart=202603280000",
+            "periodStart=202603280000&securityToken=SECRET-KEY-123",
+        ],
+    )
+    async def test_api_key_is_kept_out_of_network_error_text(self, url_tail):
+        error = aiohttp.ClientError(
+            f"Too many redirects, url='{ENTSOE_BASE_URL}?documentType=A44&{url_tail}'"
+        )
+        with mock_aiohttp() as m:
+            m.get(re.compile(r".*"), exception=error)
+            async with aiohttp.ClientSession() as session:
+                with pytest.raises(EntsoEConnectionError) as exc_info:
+                    await fetch_day_ahead_prices(
+                        session, "SECRET-KEY-123", AREA,
+                        datetime.date(2026, 3, 29), UTC,
+                    )
+        message = str(exc_info.value)
+        assert "SECRET-KEY-123" not in message
+        assert "securityToken=***" in message
+        assert "periodStart=202603280000" in message
+
+    @pytest.mark.asyncio
     async def test_success_returns_price_dict(self):
         points = [(i + 1, float(i * 5)) for i in range(24)]
         xml_body = _pub_xml(_timeseries("PT60M", "2026-03-29T00:00Z", points))

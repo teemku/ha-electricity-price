@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import datetime
 import logging
+import re
 from xml.etree import ElementTree
 
 import aiohttp
@@ -14,6 +15,7 @@ from .const import ENTSOE_BASE_URL, ENTSOE_DOCUMENT_TYPE, ENTSOE_XML_NS, SLOT_MI
 _LOGGER = logging.getLogger(__name__)
 
 _NS = ENTSOE_XML_NS
+_TOKEN_PARAM = re.compile(r"securityToken=[^&\s'\"]+")
 _ACK_TAG = f"{{{_NS}}}Acknowledgement_MarketDocument"
 _PUB_TAG = f"{{{_NS}}}Publication_MarketDocument"
 
@@ -87,7 +89,9 @@ async def fetch_day_ahead_prices(
     except asyncio.TimeoutError as err:
         raise EntsoEConnectionError("Request timed out") from err
     except aiohttp.ClientError as err:
-        raise EntsoEConnectionError(f"Network error: {err}") from err
+        raise EntsoEConnectionError(
+            f"Network error: {_TOKEN_PARAM.sub('securityToken=***', str(err))}"
+        ) from err
 
     return _parse_xml(text, timezone, local_midnight)
 
