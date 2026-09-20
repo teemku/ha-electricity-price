@@ -111,7 +111,9 @@
       "price_level_change": "Hintataso muuttuu",
       "price_below": "Hinta laskee rajan alle",
       "price_above": "Hinta nousee rajan yli",
-      "tomorrow_available": "Huomisen hinnat saatavilla"
+      "tomorrow_available": "Huomisen hinnat saatavilla",
+      "fetch_failed": "Hintojen haku epäonnistui",
+      "fetch_recovered": "Hintojen haku toimii taas"
     },
     "extra_fields": {
       "duration": "Kesto (tuntia)",

@@ -111,7 +111,9 @@
       "price_level_change": "Price level changes",
       "price_below": "Price drops below threshold",
       "price_above": "Price rises above threshold",
-      "tomorrow_available": "Tomorrow's prices available"
+      "tomorrow_available": "Tomorrow's prices available",
+      "fetch_failed": "Price fetch failed",
+      "fetch_recovered": "Price fetch recovered"
     },
     "extra_fields": {
       "duration": "Duration (hours)",

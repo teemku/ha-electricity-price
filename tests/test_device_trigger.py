@@ -7,11 +7,12 @@ from unittest.mock import MagicMock
 import pytest
 
 import homeassistant.util.dt as dt_mock
-from custom_components.electricity_price.const import DOMAIN
+from custom_components.electricity_price.const import DOMAIN, INTEGRATION_NAME
 from custom_components.electricity_price.device_trigger import (
     TRIGGER_TYPES,
     _attach_optimal_start,
     _attach_price_level_change,
+    _attach_fetch_state_change,
     _attach_price_threshold,
     _attach_tomorrow_available,
     _find_optimal_start_windowed,
@@ -236,6 +237,7 @@ _THRESHOLDS = [
 
 def _make_coordinator(today_prices=None, tomorrow_available=False, thresholds=None, data_none=False):
     coord = MagicMock()
+    coord.fetch_errors = {}
     if data_none:
         coord.data = None
     else:
@@ -462,6 +464,177 @@ class TestAttachTomorrowAvailable:
 
 
 # ---------------------------------------------------------------------------
+# _attach_fetch_state_change
+# ---------------------------------------------------------------------------
+
+
+def _attach_fetch(coord, *, recovered, hass=None):
+    hass = hass or MagicMock()
+    captured, _ = _capture_listener(coord)
+    _attach_fetch_state_change(hass, {}, MagicMock(), {}, coord, "d1", recovered=recovered)
+    return hass, captured["fn"]
+
+
+def _fired_triggers(hass):
+    return [c[0][1]["trigger"] for c in hass.async_run_hass_job.call_args_list]
+
+
+class TestAttachFetchFailed:
+    def test_fires_with_scope_and_error_when_fetch_starts_failing(self):
+        coord = _make_coordinator()
+        hass, on_update = _attach_fetch(coord, recovered=False)
+
+        coord.fetch_errors["tomorrow"] = "Request timed out"
+        on_update()
+
+        [trigger] = _fired_triggers(hass)
+        assert trigger["type"] == "fetch_failed"
+        assert trigger["scope"] == "tomorrow"
+        assert trigger["error"] == "Request timed out"
+        assert trigger["device_id"] == "d1"
+        assert trigger["description"] == f"{INTEGRATION_NAME} fetch failed (tomorrow)"
+
+    def test_no_refire_while_failure_continues(self):
+        coord = _make_coordinator()
+        hass, on_update = _attach_fetch(coord, recovered=False)
+
+        coord.fetch_errors["today"] = "boom"
+        on_update()
+        on_update()
+        coord.fetch_errors["today"] = "boom again"
+        on_update()
+
+        assert len(_fired_triggers(hass)) == 1
+
+    def test_does_not_fire_for_failure_present_at_attach(self):
+        coord = _make_coordinator()
+        coord.fetch_errors["today"] = "boom"
+        hass, on_update = _attach_fetch(coord, recovered=False)
+
+        on_update()
+
+        hass.async_run_hass_job.assert_not_called()
+
+    def test_does_not_fire_when_failure_ends(self):
+        coord = _make_coordinator()
+        hass, on_update = _attach_fetch(coord, recovered=False)
+
+        coord.fetch_errors["today"] = "boom"
+        on_update()
+        del coord.fetch_errors["today"]
+        on_update()
+
+        assert len(_fired_triggers(hass)) == 1
+
+    def test_fires_again_after_recovery(self):
+        coord = _make_coordinator()
+        hass, on_update = _attach_fetch(coord, recovered=False)
+
+        coord.fetch_errors["today"] = "first"
+        on_update()
+        del coord.fetch_errors["today"]
+        on_update()
+        coord.fetch_errors["today"] = "second"
+        on_update()
+
+        assert [t["error"] for t in _fired_triggers(hass)] == ["first", "second"]
+
+    def test_scopes_are_tracked_independently(self):
+        coord = _make_coordinator()
+        hass, on_update = _attach_fetch(coord, recovered=False)
+
+        coord.fetch_errors["tomorrow"] = "tomorrow error"
+        on_update()
+        coord.fetch_errors["today"] = "today error"
+        on_update()
+
+        assert [t["scope"] for t in _fired_triggers(hass)] == ["tomorrow", "today"]
+
+    def test_fires_without_price_data(self):
+        coord = _make_coordinator(data_none=True)
+        hass, on_update = _attach_fetch(coord, recovered=False)
+
+        coord.fetch_errors["today"] = "boom"
+        on_update()
+
+        assert len(_fired_triggers(hass)) == 1
+
+
+class TestAttachFetchRecovered:
+    def test_fires_with_scope_when_observed_failure_ends(self):
+        coord = _make_coordinator()
+        hass, on_update = _attach_fetch(coord, recovered=True)
+
+        coord.fetch_errors["tomorrow"] = "boom"
+        on_update()
+        hass.async_run_hass_job.assert_not_called()
+        del coord.fetch_errors["tomorrow"]
+        on_update()
+
+        [trigger] = _fired_triggers(hass)
+        assert trigger["type"] == "fetch_recovered"
+        assert trigger["scope"] == "tomorrow"
+        assert "error" not in trigger
+        assert trigger["description"] == f"{INTEGRATION_NAME} fetch recovered (tomorrow)"
+
+    def test_does_not_fire_when_nothing_failed(self):
+        coord = _make_coordinator()
+        hass, on_update = _attach_fetch(coord, recovered=True)
+
+        on_update()
+        on_update()
+
+        hass.async_run_hass_job.assert_not_called()
+
+    def test_does_not_fire_when_failure_present_at_attach_ends(self):
+        coord = _make_coordinator()
+        coord.fetch_errors["today"] = "boom"
+        hass, on_update = _attach_fetch(coord, recovered=True)
+
+        del coord.fetch_errors["today"]
+        on_update()
+
+        hass.async_run_hass_job.assert_not_called()
+
+    def test_fires_once_per_recovery(self):
+        coord = _make_coordinator()
+        hass, on_update = _attach_fetch(coord, recovered=True)
+
+        for _ in range(2):
+            coord.fetch_errors["today"] = "boom"
+            on_update()
+            del coord.fetch_errors["today"]
+            on_update()
+            on_update()
+
+        assert len(_fired_triggers(hass)) == 2
+
+    def test_scopes_are_tracked_independently(self):
+        coord = _make_coordinator()
+        hass, on_update = _attach_fetch(coord, recovered=True)
+
+        coord.fetch_errors["today"] = "today error"
+        coord.fetch_errors["tomorrow"] = "tomorrow error"
+        on_update()
+        del coord.fetch_errors["tomorrow"]
+        on_update()
+
+        assert [t["scope"] for t in _fired_triggers(hass)] == ["tomorrow"]
+
+    def test_failure_after_attach_fires_when_it_ends_even_if_another_was_present_at_attach(self):
+        coord = _make_coordinator()
+        coord.fetch_errors["today"] = "boom"
+        hass, on_update = _attach_fetch(coord, recovered=True)
+
+        coord.fetch_errors["tomorrow"] = "later"
+        on_update()
+        coord.fetch_errors.clear()
+        on_update()
+
+        assert [t["scope"] for t in _fired_triggers(hass)] == ["tomorrow"]
+
+
+# ---------------------------------------------------------------------------
 # _attach_optimal_start
 # ---------------------------------------------------------------------------
 
@@ -618,6 +791,13 @@ class TestAsyncGetTriggerCapabilities:
         )
         assert result == {}
 
+    @pytest.mark.parametrize("trigger_type", ["fetch_failed", "fetch_recovered"])
+    def test_fetch_triggers_no_extra_fields(self, trigger_type):
+        result = asyncio.run(
+            async_get_trigger_capabilities(MagicMock(), {"type": trigger_type})
+        )
+        assert result == {}
+
 
 # ---------------------------------------------------------------------------
 # async_attach_trigger
@@ -665,3 +845,26 @@ class TestAsyncAttachTrigger:
             result = asyncio.run(async_attach_trigger(hass, config, MagicMock(), {}))
 
         assert callable(result)
+
+    @pytest.mark.parametrize("trigger_type", ["fetch_failed", "fetch_recovered"])
+    def test_fetch_triggers_listen_to_coordinator(self, trigger_type):
+        from unittest.mock import patch
+
+        dev_reg = MagicMock()
+        device = MagicMock()
+        device.config_entries = ["entry1"]
+        dev_reg.async_get.return_value = device
+
+        hass = MagicMock()
+        entry = MagicMock()
+        entry.domain = DOMAIN
+        coord = _make_coordinator()
+        entry.runtime_data = coord
+        hass.config_entries.async_get_entry.return_value = entry
+
+        config = {"type": trigger_type, "device_id": "d1", "domain": DOMAIN}
+        with patch(f"{_DT_MOD}.dr") as mock_dr:
+            mock_dr.async_get.return_value = dev_reg
+            asyncio.run(async_attach_trigger(hass, config, MagicMock(), {}))
+
+        coord.async_add_listener.assert_called_once()

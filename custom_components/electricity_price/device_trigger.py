@@ -36,6 +36,8 @@ TRIGGER_TYPE_PRICE_LEVEL_CHANGE = "price_level_change"
 TRIGGER_TYPE_PRICE_BELOW = "price_below"
 TRIGGER_TYPE_PRICE_ABOVE = "price_above"
 TRIGGER_TYPE_TOMORROW_AVAILABLE = "tomorrow_available"
+TRIGGER_TYPE_FETCH_FAILED = "fetch_failed"
+TRIGGER_TYPE_FETCH_RECOVERED = "fetch_recovered"
 
 TRIGGER_TYPES = (
     TRIGGER_TYPE_OPTIMAL_START,
@@ -43,6 +45,8 @@ TRIGGER_TYPES = (
     TRIGGER_TYPE_PRICE_BELOW,
     TRIGGER_TYPE_PRICE_ABOVE,
     TRIGGER_TYPE_TOMORROW_AVAILABLE,
+    TRIGGER_TYPE_FETCH_FAILED,
+    TRIGGER_TYPE_FETCH_RECOVERED,
 )
 
 TRIGGER_SCHEMA = DEVICE_TRIGGER_BASE_SCHEMA.extend(
@@ -205,7 +209,7 @@ async def async_get_trigger_capabilities(
             )
         }
 
-    # price_level_change and tomorrow_available need no extra fields.
+    # The remaining trigger types need no extra fields.
     return {}
 
 
@@ -234,6 +238,10 @@ async def async_attach_trigger(
         return _attach_price_threshold(hass, config, action, trigger_info, coordinator, device_id, below=False)
     if trigger_type == TRIGGER_TYPE_TOMORROW_AVAILABLE:
         return _attach_tomorrow_available(hass, config, action, trigger_info, coordinator, device_id)
+    if trigger_type == TRIGGER_TYPE_FETCH_FAILED:
+        return _attach_fetch_state_change(hass, config, action, trigger_info, coordinator, device_id, recovered=False)
+    if trigger_type == TRIGGER_TYPE_FETCH_RECOVERED:
+        return _attach_fetch_state_change(hass, config, action, trigger_info, coordinator, device_id, recovered=True)
 
     return lambda: None
 
@@ -443,5 +451,54 @@ def _attach_tomorrow_available(
                 },
             )
         prev_available = available
+
+    return coordinator.async_add_listener(_on_update)
+
+
+@callback  # type: ignore[untyped-decorator]
+def _attach_fetch_state_change(
+    hass: HomeAssistant,
+    config: dict[str, Any],
+    action: Any,
+    trigger_info: dict[str, Any],
+    coordinator: PriceCoordinator,
+    device_id: str,
+    *,
+    recovered: bool,
+) -> CALLBACK_TYPE:
+    trigger_type = TRIGGER_TYPE_FETCH_RECOVERED if recovered else TRIGGER_TYPE_FETCH_FAILED
+    prev_failing = set(coordinator.fetch_errors)
+    # A failure already present at attach time is not reported when it ends.
+    observed_failing: set[str] = set()
+
+    @callback  # type: ignore[untyped-decorator]
+    def _on_update() -> None:
+        nonlocal prev_failing
+        errors = coordinator.fetch_errors
+        failing = set(errors)
+        started = failing - prev_failing
+        ended = prev_failing - failing
+        prev_failing = failing
+        if recovered:
+            observed_failing.update(started)
+            scopes = ended & observed_failing
+            observed_failing.difference_update(ended)
+        else:
+            scopes = started
+        for scope in sorted(scopes):
+            payload: dict[str, Any] = {
+                **trigger_info,
+                "platform": "device",
+                "domain": DOMAIN,
+                "device_id": device_id,
+                "type": trigger_type,
+                "scope": scope,
+                "description": (
+                    f"{INTEGRATION_NAME} fetch {'recovered' if recovered else 'failed'} ({scope})"
+                ),
+            }
+            if not recovered:
+                payload["error"] = errors[scope]
+            hass.async_run_hass_job(action, {"trigger": payload})
 
     return coordinator.async_add_listener(_on_update)
