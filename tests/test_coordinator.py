@@ -32,6 +32,7 @@ def _make_coordinator(raw_today=None, raw_tomorrow=None, data=None, entry_option
     coord._resolution = 60
     coord.data = data
     coord._fetch_errors = {}
+    coord._last_success = None
     coord._pricing_update_in_progress = False
     coord.async_set_updated_data = MagicMock()
     return coord
@@ -397,6 +398,7 @@ def _make_update_coordinator(raw_today=None, raw_tomorrow=None, data=None, today
     coord._resolution = 60
     coord.data = data
     coord._fetch_errors = {}
+    coord._last_success = None
     coord._pricing_update_in_progress = False
     coord.async_set_updated_data = MagicMock()
 
@@ -658,3 +660,162 @@ class TestFetchErrors:
             "today": "Network error: boom",
             "tomorrow": "earlier tomorrow error",
         }
+
+
+class TestLastSuccess:
+    """The time of the last successful ENTSO-E request is recorded and persisted."""
+
+    TODAY = date(2026, 4, 4)
+    NOW = datetime(2026, 4, 4, 12, 0, 0, tzinfo=timezone.utc)
+
+    @staticmethod
+    def _slots(count=96):
+        return {f"2026-04-04T{i // 4:02d}:{i % 4 * 15:02d}:00Z": 50.0 for i in range(count)}
+
+    async def _update(self, coord, today_result, tomorrow_result, stored=None):
+        coord._store.async_load = AsyncMock(return_value=stored)
+
+        def fetch(session, api_key, area_eic, day, tz):
+            result = today_result if day == self.TODAY else tomorrow_result
+            if isinstance(result, Exception):
+                raise result
+            return result, 60
+
+        with (
+            patch(
+                "custom_components.electricity_price.coordinator.dt_util.now",
+                return_value=self.NOW,
+            ),
+            patch(
+                "custom_components.electricity_price.coordinator.dt_util.utcnow",
+                return_value=self.NOW,
+            ),
+            patch("custom_components.electricity_price.coordinator.async_get_clientsession"),
+            patch(
+                "custom_components.electricity_price.coordinator.api.fetch_day_ahead_prices",
+                new_callable=AsyncMock,
+                side_effect=fetch,
+            ),
+            patch("custom_components.electricity_price.coordinator.ConfigEntryAuthFailed", RuntimeError),
+            patch.object(coord, "_save_stored", new_callable=AsyncMock),
+        ):
+            return await coord._async_update_data()
+
+    def _stored(self, tomorrow_slots=0, last_success=None):
+        return {
+            "today_date": self.TODAY.isoformat(),
+            "today_prices": self._slots(),
+            "tomorrow_prices": self._slots(tomorrow_slots) if tomorrow_slots else {},
+            "last_success": last_success,
+        }
+
+    @pytest.mark.asyncio
+    async def test_unknown_before_any_request(self):
+        coord, _ = _make_update_coordinator(today=self.TODAY)
+        assert coord.last_success is None
+
+    @pytest.mark.asyncio
+    async def test_set_when_todays_live_fetch_succeeds(self):
+        coord, _ = _make_update_coordinator(today=self.TODAY)
+        await self._update(coord, self._slots(), EntsoENoDataError("not published"))
+        assert coord.last_success == self.NOW
+
+    @pytest.mark.asyncio
+    async def test_set_when_only_tomorrows_live_fetch_succeeds(self):
+        coord, _ = _make_update_coordinator(today=self.TODAY)
+        await self._update(coord, EntsoEConnectionError("unused"), self._slots(), stored=self._stored())
+        assert coord.last_success == self.NOW
+
+    @pytest.mark.asyncio
+    async def test_set_when_tomorrow_is_not_published_yet(self):
+        coord, _ = _make_update_coordinator(today=self.TODAY)
+        await self._update(coord, EntsoEConnectionError("unused"), EntsoENoDataError("not published"), stored=self._stored())
+        assert coord.last_success == self.NOW
+
+    @pytest.mark.asyncio
+    async def test_not_set_when_prices_come_from_stored_data(self):
+        coord, _ = _make_update_coordinator(today=self.TODAY)
+        await self._update(
+            coord,
+            EntsoEConnectionError("unused"),
+            EntsoEConnectionError("unused"),
+            stored=self._stored(tomorrow_slots=96),
+        )
+        assert coord.last_success is None
+
+    @pytest.mark.asyncio
+    async def test_not_set_when_todays_fetch_fails(self):
+        coord, _ = _make_update_coordinator(today=self.TODAY)
+        with pytest.raises(Exception):
+            await self._update(coord, EntsoEConnectionError("boom"), self._slots())
+        assert coord.last_success is None
+
+    @pytest.mark.asyncio
+    async def test_not_set_when_todays_fetch_returns_no_data(self):
+        coord, _ = _make_update_coordinator(today=self.TODAY)
+        with pytest.raises(Exception):
+            await self._update(coord, EntsoENoDataError("nothing"), self._slots())
+        assert coord.last_success is None
+
+    @pytest.mark.asyncio
+    async def test_not_set_when_only_tomorrows_fetch_fails(self):
+        coord, _ = _make_update_coordinator(today=self.TODAY)
+        await self._update(coord, EntsoEConnectionError("unused"), EntsoEConnectionError("boom"), stored=self._stored())
+        assert coord.last_success is None
+
+    @pytest.mark.asyncio
+    async def test_failure_keeps_the_earlier_time(self):
+        earlier = datetime(2026, 4, 4, 9, 0, 0, tzinfo=timezone.utc)
+        coord, _ = _make_update_coordinator(today=self.TODAY)
+        coord._last_success = earlier
+        with pytest.raises(Exception):
+            await self._update(coord, EntsoEConnectionError("boom"), self._slots())
+        assert coord.last_success == earlier
+
+    @pytest.mark.asyncio
+    async def test_save_writes_the_time(self):
+        coord, _ = _make_update_coordinator(today=self.TODAY)
+        coord._last_success = self.NOW
+        await coord._save_stored()
+        saved = coord._store.async_save.await_args.args[0]
+        assert saved["last_success"] == self.NOW.isoformat()
+
+    @pytest.mark.asyncio
+    async def test_save_writes_none_when_unknown(self):
+        coord, _ = _make_update_coordinator(today=self.TODAY)
+        await coord._save_stored()
+        saved = coord._store.async_save.await_args.args[0]
+        assert saved["last_success"] is None
+
+    @pytest.mark.asyncio
+    async def test_restored_from_stored_data(self):
+        coord, _ = _make_update_coordinator(today=self.TODAY)
+        coord._store.async_load = AsyncMock(return_value=self._stored(last_success=self.NOW.isoformat()))
+        await coord._load_stored(self.TODAY)
+        assert coord.last_success == self.NOW
+
+    @pytest.mark.asyncio
+    async def test_restored_even_when_stored_prices_are_from_another_day(self):
+        coord, _ = _make_update_coordinator(today=self.TODAY)
+        stored = self._stored(last_success=self.NOW.isoformat())
+        stored["today_date"] = "2026-04-03"
+        coord._store.async_load = AsyncMock(return_value=stored)
+        assert await coord._load_stored(self.TODAY) is None
+        assert coord.last_success == self.NOW
+
+    @pytest.mark.asyncio
+    async def test_stored_time_does_not_overwrite_a_newer_in_memory_time(self):
+        coord, _ = _make_update_coordinator(today=self.TODAY)
+        coord._last_success = self.NOW
+        older = (self.NOW - timedelta(hours=3)).isoformat()
+        coord._store.async_load = AsyncMock(return_value=self._stored(last_success=older))
+        await coord._load_stored(self.TODAY)
+        assert coord.last_success == self.NOW
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("value", [None, "", "not a time", 12345])
+    async def test_malformed_stored_value_leaves_it_unknown(self, value):
+        coord, _ = _make_update_coordinator(today=self.TODAY)
+        coord._store.async_load = AsyncMock(return_value=self._stored(last_success=value))
+        await coord._load_stored(self.TODAY)
+        assert coord.last_success is None

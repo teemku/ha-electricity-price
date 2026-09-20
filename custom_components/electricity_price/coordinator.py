@@ -99,6 +99,7 @@ class PriceCoordinator(DataUpdateCoordinator[PriceData]):  # type: ignore[misc]
         self._raw_tomorrow: dict[str, float] = {}
         # Scope -> error text, present only while that scope's fetch is failing.
         self._fetch_errors: dict[str, str] = {}
+        self._last_success: datetime | None = None
         # Native ENTSO-E resolution; updated on each live API fetch for today.
         self._resolution: int = SLOT_MINUTES
         # Set to True before updating entry options from async_update_vat_fee
@@ -118,6 +119,10 @@ class PriceCoordinator(DataUpdateCoordinator[PriceData]):  # type: ignore[misc]
     @property
     def fetch_errors(self) -> Mapping[str, str]:
         return self._fetch_errors
+
+    @property
+    def last_success(self) -> datetime | None:
+        return self._last_success
 
     async def _handle_slot_boundary(self, now: datetime) -> None:
         """Notify all listeners at each 15-minute price slot boundary.
@@ -223,6 +228,7 @@ class PriceCoordinator(DataUpdateCoordinator[PriceData]):  # type: ignore[misc]
             except (EntsoEConnectionError, EntsoENoDataError) as err:
                 self._set_fetch_error(FETCH_SCOPE_TODAY, str(err))
                 raise UpdateFailed(f"Could not fetch today's prices: {err}") from err
+            self._last_success = dt_util.utcnow()
             raw_today = self._to_raw_prices(fetched_today)
 
         # ── Tomorrow's prices ─────────────────────────────────────────────────
@@ -247,12 +253,14 @@ class PriceCoordinator(DataUpdateCoordinator[PriceData]):  # type: ignore[misc]
                 fetched_tomorrow, _ = await api.fetch_day_ahead_prices(
                     session, api_key, area_eic, tomorrow, tz
                 )
+                self._last_success = dt_util.utcnow()
                 raw_tomorrow = (
                     self._to_raw_prices(fetched_tomorrow)
                     if len(fetched_tomorrow) >= 88
                     else {}
                 )
             except EntsoENoDataError:
+                self._last_success = dt_util.utcnow()
                 raw_tomorrow = {}
             except (EntsoEAuthError, EntsoEConnectionError) as err:
                 self._set_fetch_error(FETCH_SCOPE_TOMORROW, str(err))
@@ -317,10 +325,16 @@ class PriceCoordinator(DataUpdateCoordinator[PriceData]):  # type: ignore[misc]
             self._pricing_update_in_progress = False
 
     async def _load_stored(self, today: date) -> dict[str, Any] | None:
-        """Load persisted raw price data, discarding it if it's from a different day."""
+        """Load persisted raw price data, discarding it if it's from a different day.
+
+        The last successful fetch time is restored before the day check, since
+        it has to survive day changes.
+        """
         stored: dict[str, Any] | None = await self._store.async_load()
         if not stored:
             return None
+        if self._last_success is None:
+            self._last_success = self._parse_timestamp(stored.get("last_success"))
         if stored.get("today_date") != today.isoformat():
             return None
         return stored
@@ -332,8 +346,18 @@ class PriceCoordinator(DataUpdateCoordinator[PriceData]):  # type: ignore[misc]
                 "today_date": dt_util.now().date().isoformat(),
                 "today_prices": self._raw_today,
                 "tomorrow_prices": self._raw_tomorrow,
+                "last_success": self._last_success.isoformat() if self._last_success else None,
             }
         )
+
+    @staticmethod
+    def _parse_timestamp(value: Any) -> datetime | None:
+        if not isinstance(value, str):
+            return None
+        try:
+            return datetime.fromisoformat(value)
+        except ValueError:
+            return None
 
     @staticmethod
     def _to_raw_prices(fetched: dict[str, float]) -> dict[str, float]:
