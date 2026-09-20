@@ -123,3 +123,5 @@ All options are also configurable through the card's visual editor in the dashbo
 | [Sensors](docs/sensors.md) | All sensor entities and helper functions |
 | [Device triggers](docs/device-triggers.md) | Automation trigger types |
 | [Config & options flow](docs/config-flow.md) | Setup and options UI |
+
+See [CHANGELOG.md](CHANGELOG.md) for a full list of notable changes.
