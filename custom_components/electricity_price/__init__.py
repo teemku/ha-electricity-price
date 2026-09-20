@@ -76,7 +76,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             [StaticPathConfig(_CARD_URL, str(_CARD_FILE), cache_headers=False)]
         )
 
-        @callback
+        @callback  # type: ignore[untyped-decorator]
         def _on_started(_hass: HomeAssistant) -> None:
             _hass.async_create_task(_async_register_lovelace_resource(_hass))
 
