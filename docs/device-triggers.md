@@ -1,6 +1,6 @@
 # Device triggers (`device_trigger.py`)
 
-Registers five automation trigger types that appear in the HA automation editor under **Device → \<Electricity Price device\>**.
+Registers seven automation trigger types that appear in the HA automation editor under **Device → \<Electricity Price device\>**.
 
 ## Trigger types
 
@@ -11,6 +11,8 @@ Registers five automation trigger types that appear in the HA automation editor 
 | `price_above` | Price above threshold | Fires when the current price rises above a value |
 | `tomorrow_available` | Tomorrow prices available | Fires once when `PriceData.tomorrow_available` becomes True |
 | `optimal_start` | Optimal start | Fires at the start of the cheapest window for a given duration |
+| `fetch_failed` | Price fetch failed | Fires once when fetching today's or tomorrow's prices starts failing |
+| `fetch_recovered` | Price fetch recovered | Fires once when a failure that was seen ends |
 
 ## Schema
 
@@ -25,7 +27,7 @@ All triggers include the standard `DEVICE_TRIGGER_BASE_SCHEMA` fields (`device_i
 
 ## How triggers attach
 
-`async_attach_trigger` is the HA entry point. It resolves the `device_id` to a `PriceCoordinator` via `_resolve_coordinator`, then delegates to one of five `_attach_*` functions:
+`async_attach_trigger` is the HA entry point. It resolves the `device_id` to a `PriceCoordinator` via `_resolve_coordinator`, then delegates to one of the `_attach_*` functions:
 
 ### `_attach_price_level_change`
 
@@ -38,6 +40,21 @@ Adds a coordinator listener. On each update, checks whether the current price is
 ### `_attach_tomorrow_available`
 
 Adds a coordinator listener that fires once when `PriceData.tomorrow_available` transitions from `False` to `True`.
+
+### `_attach_fetch_state_change` (used for both failed/recovered)
+
+Adds a coordinator listener and compares the set of failing scopes (`today`, `tomorrow`) in `PriceCoordinator.fetch_errors` with the set at the previous update. The set at attach time is the starting point, so a failure that is already ongoing is not reported as new.
+
+`fetch_failed` fires once for each scope that starts failing, and does not fire again while the failure continues. `fetch_recovered` fires once for each scope whose failure ends, but only if the trigger saw that failure start after it was attached. Both triggers track the scopes independently.
+
+Trigger data:
+
+| Variable | Trigger | Description |
+|---|---|---|
+| `scope` | both | `today` or `tomorrow` |
+| `error` | `fetch_failed` | Error text of the failure |
+
+For tomorrow's scope, recovery means the fetch no longer fails. It also fires when ENTSO-E answers that tomorrow's prices are not published yet, so use `tomorrow_available` to react to the prices actually arriving.
 
 ### `_attach_optimal_start`
 

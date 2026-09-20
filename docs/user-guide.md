@@ -170,6 +170,22 @@ Fires once per day when tomorrow's complete price data has been fetched from ENT
 
 **Example use:** Recalculate a scheduled programme once tomorrow's prices are known.
 
+### Price fetch failed
+
+Fires once when fetching prices from ENTSO-E starts failing. It does not fire again while the failure continues, and fires again if the fetch recovers and later fails anew. No extra configuration needed.
+
+The trigger data contains `scope` (`today` or `tomorrow`) and `error`, the error text. A failure to fetch today's prices makes the price sensors unavailable. A failure to fetch tomorrow's prices leaves them working with today's data, so this trigger is the way to hear about it. ENTSO-E not having published tomorrow's prices yet is not a failure.
+
+**Example use:** Send a notification that the price data may be out of date.
+
+### Price fetch recovered
+
+Fires once when a failure that the automation has seen ends. It does not fire for a failure that was already ongoing when Home Assistant started or the automation was loaded. The trigger data contains `scope`.
+
+For tomorrow's prices this means the fetch works again, not that the prices are available. Use *Tomorrow prices available* for that.
+
+**Example use:** Send a notification that price data is flowing again.
+
 ### Optimal start
 
 Fires at the beginning of the cheapest contiguous time window of a given duration. Optionally restricts the search to a time window.

@@ -26,7 +26,7 @@ coordinator.py ─────────────────────�
     ├──► number.py             2 editable config entities (VAT, transfer fee)
     │                          that call async_update_vat_fee.
     │
-    └──► device_trigger.py     5 device trigger types attach coordinator
+    └──► device_trigger.py     7 device trigger types attach coordinator
                                listeners that fire when their condition is met.
 
 __init__.py ──────────────────────────────────────────────────────────────

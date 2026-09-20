@@ -21,7 +21,7 @@ Fetches all 15-minute price slots for a single local calendar day.
 | Exception | When |
 |---|---|
 | `EntsoEAuthError` | HTTP 401 — invalid or expired API key |
-| `EntsoEConnectionError` | Network error or unexpected HTTP status |
+| `EntsoEConnectionError` | Network error, request timeout or unexpected HTTP status |
 | `EntsoENoDataError` | ENTSO-E returned an Acknowledgement (no data for the requested period) |
 
 ### Period calculation
