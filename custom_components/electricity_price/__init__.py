@@ -6,10 +6,8 @@ import logging
 from pathlib import Path
 from typing import Any
 
-from homeassistant.components.http import StaticPathConfig
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, ServiceCall, callback
-from homeassistant.helpers.start import async_at_started
 from homeassistant.exceptions import ServiceValidationError
 import homeassistant.helpers.entity_registry as er
 
@@ -72,6 +70,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     # Serve the card JS and register the Lovelace resource once per HA instance.
     if not hass.data.get(f"{DOMAIN}_card_registered"):
         hass.data[f"{DOMAIN}_card_registered"] = True
+        from homeassistant.components.http import StaticPathConfig  # noqa: PLC0415
+        from homeassistant.helpers.start import async_at_started  # noqa: PLC0415
         await hass.http.async_register_static_paths(
             [StaticPathConfig(_CARD_URL, str(_CARD_FILE), cache_headers=False)]
         )
