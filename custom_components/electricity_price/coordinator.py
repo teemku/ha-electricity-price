@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
 from typing import Any
@@ -29,6 +30,8 @@ from .const import (
     DEFAULT_TRANSFER_FEE,
     DEFAULT_VAT,
     DOMAIN,
+    FETCH_SCOPE_TODAY,
+    FETCH_SCOPE_TOMORROW,
     MIN_TOMORROW_SLOTS,
     PRICE_AREAS,
     SLOT_MINUTES,
@@ -94,6 +97,8 @@ class PriceCoordinator(DataUpdateCoordinator[PriceData]):  # type: ignore[misc]
         # a pricing update can recompute final prices without hitting the API.
         self._raw_today: dict[str, float] = {}
         self._raw_tomorrow: dict[str, float] = {}
+        # Scope -> error text, present only while that scope's fetch is failing.
+        self._fetch_errors: dict[str, str] = {}
         # Native ENTSO-E resolution; updated on each live API fetch for today.
         self._resolution: int = SLOT_MINUTES
         # Set to True before updating entry options from async_update_vat_fee
@@ -109,6 +114,10 @@ class PriceCoordinator(DataUpdateCoordinator[PriceData]):  # type: ignore[misc]
                 second=0,
             )
         )
+
+    @property
+    def fetch_errors(self) -> Mapping[str, str]:
+        return self._fetch_errors
 
     async def _handle_slot_boundary(self, now: datetime) -> None:
         """Notify all listeners at each 15-minute price slot boundary.
@@ -185,6 +194,8 @@ class PriceCoordinator(DataUpdateCoordinator[PriceData]):  # type: ignore[misc]
             else None
         )
 
+        self._set_fetch_error(FETCH_SCOPE_TODAY, None)
+
         if stored and stored.get("today_prices") and len(stored["today_prices"]) >= 88:
             raw_today = stored["today_prices"]
             _LOGGER.debug("Using stored prices for today (%s)", today)
@@ -198,6 +209,7 @@ class PriceCoordinator(DataUpdateCoordinator[PriceData]):  # type: ignore[misc]
                 )
                 self._resolution = resolution
             except EntsoEAuthError as err:
+                self._set_fetch_error(FETCH_SCOPE_TODAY, str(err))
                 async_create_issue(
                     self.hass,
                     DOMAIN,
@@ -209,10 +221,13 @@ class PriceCoordinator(DataUpdateCoordinator[PriceData]):  # type: ignore[misc]
                 )
                 raise ConfigEntryAuthFailed(f"Authentication failed: {err}") from err
             except (EntsoEConnectionError, EntsoENoDataError) as err:
+                self._set_fetch_error(FETCH_SCOPE_TODAY, str(err))
                 raise UpdateFailed(f"Could not fetch today's prices: {err}") from err
             raw_today = self._to_raw_prices(fetched_today)
 
         # ── Tomorrow's prices ─────────────────────────────────────────────────
+        self._set_fetch_error(FETCH_SCOPE_TOMORROW, None)
+
         cached_raw_tomorrow = (
             self._raw_tomorrow
             if self._raw_tomorrow
@@ -240,6 +255,7 @@ class PriceCoordinator(DataUpdateCoordinator[PriceData]):  # type: ignore[misc]
             except EntsoENoDataError:
                 raw_tomorrow = {}
             except (EntsoEAuthError, EntsoEConnectionError) as err:
+                self._set_fetch_error(FETCH_SCOPE_TOMORROW, str(err))
                 _LOGGER.warning("Could not fetch tomorrow's prices: %s", err)
                 raw_tomorrow = {}
 
@@ -257,6 +273,12 @@ class PriceCoordinator(DataUpdateCoordinator[PriceData]):  # type: ignore[misc]
         await self._save_stored()
         async_delete_issue(self.hass, DOMAIN, f"auth_failed_{self.entry.entry_id}")
         return result
+
+    def _set_fetch_error(self, scope: str, error: str | None) -> None:
+        if error is None:
+            self._fetch_errors.pop(scope, None)
+        else:
+            self._fetch_errors[scope] = error
 
     async def async_update_vat_fee(self, vat: float, transfer_fee: float) -> None:
         """Recompute final prices from stored raw prices with new VAT/fee settings.

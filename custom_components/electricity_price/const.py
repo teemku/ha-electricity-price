@@ -35,6 +35,10 @@ SLOTS_PER_HOUR = 60 // SLOT_MINUTES  # 4
 # so a partial fetch is still rejected.
 MIN_TOMORROW_SLOTS = 88
 
+# Scopes a price fetch can fail in
+FETCH_SCOPE_TODAY = "today"
+FETCH_SCOPE_TOMORROW = "tomorrow"
+
 # ENTSO-E API
 ENTSOE_BASE_URL = "https://web-api.tp.entsoe.eu/api"
 ENTSOE_DOCUMENT_TYPE = "A44"

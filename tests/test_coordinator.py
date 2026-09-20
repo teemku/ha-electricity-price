@@ -5,6 +5,11 @@ from datetime import date, datetime, timedelta, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from custom_components.electricity_price.coordinator import PriceCoordinator, PriceData, _Store
+from custom_components.electricity_price.api import (
+    EntsoEAuthError,
+    EntsoEConnectionError,
+    EntsoENoDataError,
+)
 from custom_components.electricity_price.const import (
     CONF_TRANSFER_FEE,
     CONF_VAT,
@@ -26,6 +31,7 @@ def _make_coordinator(raw_today=None, raw_tomorrow=None, data=None, entry_option
     coord._raw_tomorrow = raw_tomorrow or {}
     coord._resolution = 60
     coord.data = data
+    coord._fetch_errors = {}
     coord._pricing_update_in_progress = False
     coord.async_set_updated_data = MagicMock()
     return coord
@@ -390,6 +396,7 @@ def _make_update_coordinator(raw_today=None, raw_tomorrow=None, data=None, today
     coord._raw_tomorrow = raw_tomorrow or {}
     coord._resolution = 60
     coord.data = data
+    coord._fetch_errors = {}
     coord._pricing_update_in_progress = False
     coord.async_set_updated_data = MagicMock()
 
@@ -511,3 +518,143 @@ class TestAsyncUpdateDataTodayCache:
         ]
         assert len(today_calls) == 1, "Expected exactly one API call for today when cache is empty"
         assert result.today_date == today
+
+
+class TestFetchErrors:
+    """_async_update_data records which scope's fetch is failing and why."""
+
+    TODAY = date(2026, 4, 4)
+
+    @staticmethod
+    def _slots(count=96):
+        return {f"2026-04-04T{i // 4:02d}:{i % 4 * 15:02d}:00Z": 50.0 for i in range(count)}
+
+    async def _update(self, coord, fetch, stored=None):
+        coord._store.async_load = AsyncMock(return_value=stored)
+        with (
+            patch(
+                "custom_components.electricity_price.coordinator.dt_util.now",
+                return_value=datetime(2026, 4, 4, 12, 0, 0, tzinfo=timezone.utc),
+            ),
+            patch("custom_components.electricity_price.coordinator.async_get_clientsession"),
+            patch(
+                "custom_components.electricity_price.coordinator.api.fetch_day_ahead_prices",
+                new_callable=AsyncMock,
+                side_effect=fetch,
+            ),
+            patch("custom_components.electricity_price.coordinator.ConfigEntryAuthFailed", RuntimeError),
+            patch.object(coord, "_save_stored", new_callable=AsyncMock),
+        ):
+            return await coord._async_update_data()
+
+    @staticmethod
+    def _by_date(today_result, tomorrow_result):
+        def fetch(session, api_key, area_eic, day, tz):
+            result = today_result if day == TestFetchErrors.TODAY else tomorrow_result
+            if isinstance(result, Exception):
+                raise result
+            return result, 60
+
+        return fetch
+
+    def _stored_today(self):
+        return {
+            "today_date": self.TODAY.isoformat(),
+            "today_prices": self._slots(),
+            "tomorrow_prices": {},
+        }
+
+    @pytest.mark.asyncio
+    async def test_no_errors_when_both_fetches_succeed(self):
+        coord, _ = _make_update_coordinator(today=self.TODAY)
+        await self._update(coord, self._by_date(self._slots(), self._slots()))
+        assert dict(coord.fetch_errors) == {}
+
+    @pytest.mark.asyncio
+    async def test_today_connection_error_is_recorded_and_update_fails(self):
+        coord, _ = _make_update_coordinator(today=self.TODAY)
+        fetch = self._by_date(EntsoEConnectionError("Network error: boom"), self._slots())
+        with pytest.raises(Exception, match="Could not fetch today's prices"):
+            await self._update(coord, fetch)
+        assert dict(coord.fetch_errors) == {"today": "Network error: boom"}
+
+    @pytest.mark.asyncio
+    async def test_today_no_data_is_recorded_as_failure(self):
+        coord, _ = _make_update_coordinator(today=self.TODAY)
+        fetch = self._by_date(EntsoENoDataError("No matching data found"), self._slots())
+        with pytest.raises(Exception):
+            await self._update(coord, fetch)
+        assert dict(coord.fetch_errors) == {"today": "No matching data found"}
+
+    @pytest.mark.asyncio
+    async def test_today_auth_error_is_recorded(self):
+        coord, _ = _make_update_coordinator(today=self.TODAY)
+        fetch = self._by_date(EntsoEAuthError("Invalid API key (HTTP 401)"), self._slots())
+        with pytest.raises(RuntimeError):
+            await self._update(coord, fetch)
+        assert dict(coord.fetch_errors) == {"today": "Invalid API key (HTTP 401)"}
+
+    @pytest.mark.asyncio
+    async def test_today_error_clears_after_successful_fetch(self):
+        coord, _ = _make_update_coordinator(today=self.TODAY)
+        coord._fetch_errors = {"today": "old error"}
+        await self._update(coord, self._by_date(self._slots(), self._slots()))
+        assert dict(coord.fetch_errors) == {}
+
+    @pytest.mark.asyncio
+    async def test_today_error_clears_when_stored_prices_are_used(self):
+        coord, _ = _make_update_coordinator(today=self.TODAY)
+        coord._fetch_errors = {"today": "old error"}
+        await self._update(
+            coord,
+            self._by_date(EntsoENoDataError("not published"), EntsoENoDataError("not published")),
+            stored=self._stored_today(),
+        )
+        assert dict(coord.fetch_errors) == {}
+
+    @pytest.mark.asyncio
+    async def test_tomorrow_connection_error_is_recorded_and_update_succeeds(self):
+        coord, _ = _make_update_coordinator(today=self.TODAY)
+        fetch = self._by_date(self._slots(), EntsoEConnectionError("ENTSO-E returned HTTP 503"))
+        result = await self._update(coord, fetch)
+        assert dict(coord.fetch_errors) == {"tomorrow": "ENTSO-E returned HTTP 503"}
+        assert result.tomorrow_prices == {}
+
+    @pytest.mark.asyncio
+    async def test_tomorrow_auth_error_is_recorded(self):
+        coord, _ = _make_update_coordinator(today=self.TODAY)
+        fetch = self._by_date(self._slots(), EntsoEAuthError("Invalid API key (HTTP 401)"))
+        await self._update(coord, fetch)
+        assert dict(coord.fetch_errors) == {"tomorrow": "Invalid API key (HTTP 401)"}
+
+    @pytest.mark.asyncio
+    async def test_tomorrow_no_data_is_not_a_failure(self):
+        coord, _ = _make_update_coordinator(today=self.TODAY)
+        await self._update(coord, self._by_date(self._slots(), EntsoENoDataError("not published")))
+        assert dict(coord.fetch_errors) == {}
+
+    @pytest.mark.asyncio
+    async def test_tomorrow_error_clears_when_no_data_is_returned(self):
+        coord, _ = _make_update_coordinator(today=self.TODAY)
+        coord._fetch_errors = {"tomorrow": "old error"}
+        await self._update(coord, self._by_date(self._slots(), EntsoENoDataError("not published")))
+        assert dict(coord.fetch_errors) == {}
+
+    @pytest.mark.asyncio
+    async def test_tomorrow_error_clears_after_successful_fetch(self):
+        coord, _ = _make_update_coordinator(today=self.TODAY)
+        coord._fetch_errors = {"tomorrow": "old error"}
+        await self._update(coord, self._by_date(self._slots(), self._slots()))
+        assert dict(coord.fetch_errors) == {}
+
+    @pytest.mark.asyncio
+    async def test_tomorrow_state_is_untouched_when_today_fails(self):
+        coord, _ = _make_update_coordinator(today=self.TODAY)
+        coord._fetch_errors = {"tomorrow": "earlier tomorrow error"}
+        fetch = self._by_date(EntsoEConnectionError("Network error: boom"), self._slots())
+        with pytest.raises(Exception):
+            await self._update(coord, fetch)
+        assert dict(coord.fetch_errors) == {
+            "today": "Network error: boom",
+            "tomorrow": "earlier tomorrow error",
+        }
