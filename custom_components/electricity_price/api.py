@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import datetime
 import logging
 from xml.etree import ElementTree
@@ -83,6 +84,8 @@ async def fetch_day_ahead_prices(
                 raise EntsoEConnectionError(
                     f"ENTSO-E returned HTTP {response.status}"
                 )
+    except asyncio.TimeoutError as err:
+        raise EntsoEConnectionError("Request timed out") from err
     except aiohttp.ClientError as err:
         raise EntsoEConnectionError(f"Network error: {err}") from err
 

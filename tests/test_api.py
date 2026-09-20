@@ -1,5 +1,6 @@
 """Tests for the ENTSO-E API client — XML parsing and HTTP error handling."""
 
+import asyncio
 import datetime
 import re
 
@@ -234,6 +235,28 @@ class TestFetchDayAheadPrices:
             m.get(re.compile(r".*"), status=500)
             async with aiohttp.ClientSession() as session:
                 with pytest.raises(EntsoEConnectionError):
+                    await fetch_day_ahead_prices(
+                        session, "key", AREA,
+                        datetime.date(2026, 3, 29), UTC,
+                    )
+
+    @pytest.mark.asyncio
+    async def test_timeout_raises_connection_error(self):
+        with mock_aiohttp() as m:
+            m.get(re.compile(r".*"), exception=asyncio.TimeoutError())
+            async with aiohttp.ClientSession() as session:
+                with pytest.raises(EntsoEConnectionError, match="timed out"):
+                    await fetch_day_ahead_prices(
+                        session, "key", AREA,
+                        datetime.date(2026, 3, 29), UTC,
+                    )
+
+    @pytest.mark.asyncio
+    async def test_network_error_raises_connection_error(self):
+        with mock_aiohttp() as m:
+            m.get(re.compile(r".*"), exception=aiohttp.ClientConnectionError("refused"))
+            async with aiohttp.ClientSession() as session:
+                with pytest.raises(EntsoEConnectionError, match="Network error"):
                     await fetch_day_ahead_prices(
                         session, "key", AREA,
                         datetime.date(2026, 3, 29), UTC,
