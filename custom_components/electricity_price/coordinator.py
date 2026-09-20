@@ -7,7 +7,7 @@ import logging
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
-from typing import Any
+from typing import Any, cast
 
 from homeassistant.helpers.issue_registry import IssueSeverity, async_create_issue, async_delete_issue
 from homeassistant.core import HomeAssistant
@@ -40,6 +40,13 @@ from .const import (
 _LOGGER = logging.getLogger(__name__)
 
 UPDATE_INTERVAL = timedelta(hours=1)
+# Wait after the 1st, 2nd, ... consecutive failed fetch. The last step is the cap.
+BACKOFF_STEPS = (
+    timedelta(minutes=15),
+    timedelta(minutes=30),
+    timedelta(hours=1),
+    timedelta(hours=2),
+)
 # Version 3: storage now holds raw base prices (EUR/MWh ÷ 10, no VAT or
 # transfer fee) so that pricing can be recomputed without an API fetch.
 STORAGE_VERSION = 3
@@ -100,6 +107,10 @@ class PriceCoordinator(DataUpdateCoordinator[PriceData]):  # type: ignore[misc]
         # Scope -> error text, present only while that scope's fetch is failing.
         self._fetch_errors: dict[str, str] = {}
         self._last_success: datetime | None = None
+        self._failure_count: int = 0
+        self._next_request_at: datetime | None = None
+        self._updating: bool = False
+        self._retry_now: bool = False
         # Native ENTSO-E resolution; updated on each live API fetch for today.
         self._resolution: int = SLOT_MINUTES
         # Set to True before updating entry options from async_update_vat_fee
@@ -164,7 +175,24 @@ class PriceCoordinator(DataUpdateCoordinator[PriceData]):  # type: ignore[misc]
         # the refresh returned identical data (e.g. tomorrow still unavailable).
         self.async_set_updated_data(self.data)
 
+    async def async_retry_now(self) -> None:
+        """Refresh immediately, ignoring any backoff window."""
+        if self._updating or self._retry_now:
+            return
+        self._retry_now = True
+        try:
+            await self.async_refresh()
+        finally:
+            self._retry_now = False
+
     async def _async_update_data(self) -> PriceData:
+        self._updating = True
+        try:
+            return await self._update_prices()
+        finally:
+            self._updating = False
+
+    async def _update_prices(self) -> PriceData:
         options = self.entry.options
         api_key = self.entry.data[CONF_API_KEY]
         area_label = self.entry.data[CONF_PRICE_AREA]
@@ -179,6 +207,8 @@ class PriceCoordinator(DataUpdateCoordinator[PriceData]):  # type: ignore[misc]
         tomorrow = today + timedelta(days=1)
 
         stored = await self._load_stored(today)
+        stored_today = self._stored_day(stored, "today_prices")
+        stored_tomorrow = self._stored_day(stored, "tomorrow_prices")
 
         session = async_get_clientsession(self.hass)
 
@@ -199,10 +229,34 @@ class PriceCoordinator(DataUpdateCoordinator[PriceData]):  # type: ignore[misc]
             else None
         )
 
+        cached_raw_tomorrow = (
+            self._raw_tomorrow
+            if self._raw_tomorrow
+            and self.data is not None
+            and self.data.tomorrow_available
+            and self.data.today_date == today
+            else None
+        )
+
+        needs_request = not (
+            (stored_today or cached_raw_today is not None)
+            and (stored_tomorrow or cached_raw_tomorrow is not None)
+        )
+        if needs_request and self._in_backoff():
+            _LOGGER.debug("Skipping fetch until %s after failed fetches", self._next_request_at)
+            if self.data is None or FETCH_SCOPE_TODAY in self._fetch_errors:
+                raise UpdateFailed(
+                    self._fetch_errors.get(FETCH_SCOPE_TODAY, "Waiting to retry after a failed fetch")
+                )
+            return cast(PriceData, self.data)
+
+        failed = False
+        succeeded = False
+
         self._set_fetch_error(FETCH_SCOPE_TODAY, None)
 
-        if stored and stored.get("today_prices") and len(stored["today_prices"]) >= 88:
-            raw_today = stored["today_prices"]
+        if stored_today:
+            raw_today = stored_today
             _LOGGER.debug("Using stored prices for today (%s)", today)
         elif cached_raw_today is not None:
             raw_today = cached_raw_today
@@ -227,24 +281,17 @@ class PriceCoordinator(DataUpdateCoordinator[PriceData]):  # type: ignore[misc]
                 raise ConfigEntryAuthFailed(f"Authentication failed: {err}") from err
             except (EntsoEConnectionError, EntsoENoDataError) as err:
                 self._set_fetch_error(FETCH_SCOPE_TODAY, str(err))
+                self._record_failure()
                 raise UpdateFailed(f"Could not fetch today's prices: {err}") from err
             self._last_success = dt_util.utcnow()
+            succeeded = True
             raw_today = self._to_raw_prices(fetched_today)
 
         # ── Tomorrow's prices ─────────────────────────────────────────────────
         self._set_fetch_error(FETCH_SCOPE_TOMORROW, None)
 
-        cached_raw_tomorrow = (
-            self._raw_tomorrow
-            if self._raw_tomorrow
-            and self.data is not None
-            and self.data.tomorrow_available
-            and self.data.today_date == today
-            else None
-        )
-
-        if stored and stored.get("tomorrow_prices") and len(stored["tomorrow_prices"]) >= 88:
-            raw_tomorrow = stored["tomorrow_prices"]
+        if stored_tomorrow:
+            raw_tomorrow = stored_tomorrow
             _LOGGER.debug("Using stored prices for tomorrow (%s)", tomorrow)
         elif cached_raw_tomorrow is not None:
             raw_tomorrow = cached_raw_tomorrow
@@ -254,6 +301,7 @@ class PriceCoordinator(DataUpdateCoordinator[PriceData]):  # type: ignore[misc]
                     session, api_key, area_eic, tomorrow, tz
                 )
                 self._last_success = dt_util.utcnow()
+                succeeded = True
                 raw_tomorrow = (
                     self._to_raw_prices(fetched_tomorrow)
                     if len(fetched_tomorrow) >= 88
@@ -261,14 +309,22 @@ class PriceCoordinator(DataUpdateCoordinator[PriceData]):  # type: ignore[misc]
                 )
             except EntsoENoDataError:
                 self._last_success = dt_util.utcnow()
+                succeeded = True
                 raw_tomorrow = {}
             except (EntsoEAuthError, EntsoEConnectionError) as err:
                 self._set_fetch_error(FETCH_SCOPE_TOMORROW, str(err))
+                failed = isinstance(err, EntsoEConnectionError)
                 _LOGGER.warning("Could not fetch tomorrow's prices: %s", err)
                 raw_tomorrow = {}
 
         self._raw_today = raw_today
         self._raw_tomorrow = raw_tomorrow
+
+        if failed:
+            self._record_failure()
+        elif succeeded:
+            self._failure_count = 0
+            self._next_request_at = None
 
         result = PriceData(
             today_prices=self._apply_pricing(raw_today, vat, transfer_fee),
@@ -281,6 +337,24 @@ class PriceCoordinator(DataUpdateCoordinator[PriceData]):  # type: ignore[misc]
         await self._save_stored()
         async_delete_issue(self.hass, DOMAIN, f"auth_failed_{self.entry.entry_id}")
         return result
+
+    def _in_backoff(self) -> bool:
+        return (
+            not self._retry_now
+            and self._next_request_at is not None
+            and dt_util.utcnow() < self._next_request_at
+        )
+
+    def _record_failure(self) -> None:
+        self._failure_count += 1
+        step = BACKOFF_STEPS[min(self._failure_count, len(BACKOFF_STEPS)) - 1]
+        self._next_request_at = dt_util.utcnow() + step
+
+    @staticmethod
+    def _stored_day(stored: dict[str, Any] | None, key: str) -> dict[str, float] | None:
+        """Return a stored day's raw prices when the day is complete."""
+        prices = stored.get(key) if stored else None
+        return prices if prices and len(prices) >= 88 else None
 
     def _set_fetch_error(self, scope: str, error: str | None) -> None:
         if error is None:

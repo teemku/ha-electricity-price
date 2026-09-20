@@ -131,6 +131,11 @@
         "name": "Tomorrow Prices Available"
       }
     },
+    "button": {
+      "retry_fetch": {
+        "name": "Retry Price Fetch"
+      }
+    },
     "number": {
       "vat": {
         "name": "VAT"

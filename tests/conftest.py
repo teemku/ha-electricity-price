@@ -110,6 +110,8 @@ ha_number_mod = _mod(
     NumberMode=_NumberMode,
 )
 
+ha_button_mod = _mod("homeassistant.components.button", ButtonEntity=object)
+
 # ---------------------------------------------------------------------------
 # homeassistant.components.device_automation
 # ---------------------------------------------------------------------------
@@ -221,6 +223,7 @@ _MOCKS = {
     "homeassistant.components": ha_components,
     "homeassistant.components.binary_sensor": ha_binary_sensor_mod,
     "homeassistant.components.sensor": ha_sensor_mod,
+    "homeassistant.components.button": ha_button_mod,
     "homeassistant.components.number": ha_number_mod,
     "homeassistant.components.device_automation": ha_da,
     "homeassistant.components.diagnostics": MagicMock(),

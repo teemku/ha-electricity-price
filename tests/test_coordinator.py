@@ -33,6 +33,10 @@ def _make_coordinator(raw_today=None, raw_tomorrow=None, data=None, entry_option
     coord.data = data
     coord._fetch_errors = {}
     coord._last_success = None
+    coord._failure_count = 0
+    coord._next_request_at = None
+    coord._updating = False
+    coord._retry_now = False
     coord._pricing_update_in_progress = False
     coord.async_set_updated_data = MagicMock()
     return coord
@@ -399,6 +403,10 @@ def _make_update_coordinator(raw_today=None, raw_tomorrow=None, data=None, today
     coord.data = data
     coord._fetch_errors = {}
     coord._last_success = None
+    coord._failure_count = 0
+    coord._next_request_at = None
+    coord._updating = False
+    coord._retry_now = False
     coord._pricing_update_in_progress = False
     coord.async_set_updated_data = MagicMock()
 
@@ -819,3 +827,209 @@ class TestLastSuccess:
         coord._store.async_load = AsyncMock(return_value=self._stored(last_success=value))
         await coord._load_stored(self.TODAY)
         assert coord.last_success is None
+
+
+class TestBackoff:
+    """Consecutive failed fetches lengthen the wait before the next request."""
+
+    TODAY = date(2026, 4, 4)
+    NOW = datetime(2026, 4, 4, 12, 0, 0, tzinfo=timezone.utc)
+
+    @staticmethod
+    def _slots(count=96):
+        return {f"2026-04-04T{i // 4:02d}:{i % 4 * 15:02d}:00Z": 50.0 for i in range(count)}
+
+    async def _update(self, coord, today_result=None, tomorrow_result=None, stored=None, now=None):
+        now = now or self.NOW
+        coord._store.async_load = AsyncMock(return_value=stored)
+        calls = []
+
+        def fetch(session, api_key, area_eic, day, tz):
+            calls.append(day)
+            result = today_result if day == self.TODAY else tomorrow_result
+            if isinstance(result, Exception):
+                raise result
+            return result, 60
+
+        with (
+            patch("custom_components.electricity_price.coordinator.dt_util.now", return_value=now),
+            patch("custom_components.electricity_price.coordinator.dt_util.utcnow", return_value=now),
+            patch("custom_components.electricity_price.coordinator.async_get_clientsession"),
+            patch(
+                "custom_components.electricity_price.coordinator.api.fetch_day_ahead_prices",
+                new_callable=AsyncMock,
+                side_effect=fetch,
+            ),
+            patch("custom_components.electricity_price.coordinator.ConfigEntryAuthFailed", RuntimeError),
+            patch.object(coord, "_save_stored", new_callable=AsyncMock),
+        ):
+            try:
+                await coord._async_update_data()
+            except Exception:
+                pass
+        return calls
+
+    def _stored(self, tomorrow_slots=0):
+        return {
+            "today_date": self.TODAY.isoformat(),
+            "today_prices": self._slots(),
+            "tomorrow_prices": self._slots(tomorrow_slots) if tomorrow_slots else {},
+        }
+
+    @pytest.mark.asyncio
+    async def test_first_failure_waits_15_minutes(self):
+        coord, _ = _make_update_coordinator(today=self.TODAY)
+        await self._update(coord, EntsoEConnectionError("down"))
+        assert coord._next_request_at == self.NOW + timedelta(minutes=15)
+
+    @pytest.mark.asyncio
+    async def test_wait_grows_to_a_two_hour_cap(self):
+        coord, _ = _make_update_coordinator(today=self.TODAY)
+        waits = []
+        for _ in range(6):
+            coord._next_request_at = None
+            await self._update(coord, EntsoEConnectionError("down"))
+            waits.append(coord._next_request_at - self.NOW)
+        assert waits == [
+            timedelta(minutes=15),
+            timedelta(minutes=30),
+            timedelta(hours=1),
+            timedelta(hours=2),
+            timedelta(hours=2),
+            timedelta(hours=2),
+        ]
+
+    @pytest.mark.asyncio
+    async def test_no_request_is_made_inside_the_window(self):
+        coord, _ = _make_update_coordinator(today=self.TODAY)
+        await self._update(coord, EntsoEConnectionError("down"))
+        calls = await self._update(coord, self._slots(), now=self.NOW + timedelta(minutes=14))
+        assert calls == []
+
+    @pytest.mark.asyncio
+    async def test_request_is_made_after_the_window(self):
+        coord, _ = _make_update_coordinator(today=self.TODAY)
+        await self._update(coord, EntsoEConnectionError("down"))
+        calls = await self._update(coord, self._slots(), now=self.NOW + timedelta(minutes=15))
+        assert self.TODAY in calls
+
+    @pytest.mark.asyncio
+    async def test_skipped_refresh_keeps_todays_error_and_fails(self):
+        coord, _ = _make_update_coordinator(today=self.TODAY)
+        await self._update(coord, EntsoEConnectionError("down"))
+        with pytest.raises(Exception, match="down"):
+            coord._store.async_load = AsyncMock(return_value=None)
+            with patch("custom_components.electricity_price.coordinator.dt_util.utcnow", return_value=self.NOW):
+                with patch("custom_components.electricity_price.coordinator.dt_util.now", return_value=self.NOW):
+                    with patch("custom_components.electricity_price.coordinator.async_get_clientsession"):
+                        await coord._async_update_data()
+        assert "today" in coord.fetch_errors
+
+    @pytest.mark.asyncio
+    async def test_skipped_refresh_keeps_tomorrows_error(self):
+        coord, _ = _make_update_coordinator(today=self.TODAY)
+        await self._update(coord, tomorrow_result=EntsoEConnectionError("down"), stored=self._stored())
+        assert "tomorrow" in coord.fetch_errors
+        calls = await self._update(coord, stored=self._stored(), now=self.NOW + timedelta(minutes=5))
+        assert calls == []
+        assert "tomorrow" in coord.fetch_errors
+
+    @pytest.mark.asyncio
+    async def test_failed_tomorrow_fetch_counts_and_grows_the_wait(self):
+        coord, _ = _make_update_coordinator(today=self.TODAY)
+        await self._update(coord, tomorrow_result=EntsoEConnectionError("down"), stored=self._stored())
+        coord._next_request_at = None
+        await self._update(coord, tomorrow_result=EntsoEConnectionError("down"), stored=self._stored())
+        assert coord._failure_count == 2
+        assert coord._next_request_at == self.NOW + timedelta(minutes=30)
+
+    @pytest.mark.asyncio
+    async def test_success_resets_the_backoff(self):
+        coord, _ = _make_update_coordinator(today=self.TODAY)
+        await self._update(coord, EntsoEConnectionError("down"))
+        await self._update(coord, self._slots(), self._slots(), now=self.NOW + timedelta(minutes=15))
+        assert coord._failure_count == 0
+        assert coord._next_request_at is None
+
+    @pytest.mark.asyncio
+    async def test_tomorrow_not_published_resets_the_backoff(self):
+        coord, _ = _make_update_coordinator(today=self.TODAY)
+        await self._update(coord, tomorrow_result=EntsoEConnectionError("down"), stored=self._stored())
+        await self._update(
+            coord,
+            tomorrow_result=EntsoENoDataError("none"),
+            stored=self._stored(),
+            now=self.NOW + timedelta(minutes=15),
+        )
+        assert coord._failure_count == 0
+        assert coord._next_request_at is None
+
+    @pytest.mark.asyncio
+    async def test_auth_error_does_not_start_a_backoff(self):
+        coord, _ = _make_update_coordinator(today=self.TODAY)
+        await self._update(coord, EntsoEAuthError("bad key"))
+        assert coord._failure_count == 0
+        assert coord._next_request_at is None
+
+    @pytest.mark.asyncio
+    async def test_refresh_without_needed_requests_is_not_held_back(self):
+        coord, _ = _make_update_coordinator(today=self.TODAY)
+        coord._next_request_at = self.NOW + timedelta(hours=1)
+        coord._failure_count = 3
+        coord._store.async_save = AsyncMock()
+        await self._update(coord, stored=self._stored(tomorrow_slots=96))
+        assert coord._failure_count == 3
+        assert "today" not in coord.fetch_errors
+
+
+class TestRetryNow:
+    """async_retry_now refreshes at once, ignoring the backoff window."""
+
+    NOW = datetime(2026, 4, 4, 12, 0, 0, tzinfo=timezone.utc)
+
+    @pytest.mark.asyncio
+    async def test_bypasses_the_backoff_window(self):
+        coord, _ = _make_update_coordinator()
+        coord._next_request_at = self.NOW + timedelta(hours=1)
+        seen = []
+
+        async def refresh():
+            with patch("custom_components.electricity_price.coordinator.dt_util.utcnow", return_value=self.NOW):
+                seen.append(coord._in_backoff())
+
+        coord.async_refresh = refresh
+        await coord.async_retry_now()
+        assert seen == [False]
+
+    @pytest.mark.asyncio
+    async def test_window_applies_again_after_the_press(self):
+        coord, _ = _make_update_coordinator()
+        coord._next_request_at = self.NOW + timedelta(hours=1)
+        coord.async_refresh = AsyncMock()
+        await coord.async_retry_now()
+        with patch("custom_components.electricity_price.coordinator.dt_util.utcnow", return_value=self.NOW):
+            assert coord._in_backoff()
+
+    @pytest.mark.asyncio
+    async def test_ignored_while_an_update_is_running(self):
+        coord, _ = _make_update_coordinator()
+        coord._updating = True
+        coord.async_refresh = AsyncMock()
+        await coord.async_retry_now()
+        coord.async_refresh.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_ignored_while_another_press_is_running(self):
+        coord, _ = _make_update_coordinator()
+        coord._retry_now = True
+        coord.async_refresh = AsyncMock()
+        await coord.async_retry_now()
+        coord.async_refresh.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_flag_is_cleared_when_the_refresh_raises(self):
+        coord, _ = _make_update_coordinator()
+        coord.async_refresh = AsyncMock(side_effect=RuntimeError("boom"))
+        with pytest.raises(RuntimeError):
+            await coord.async_retry_now()
+        assert coord._retry_now is False

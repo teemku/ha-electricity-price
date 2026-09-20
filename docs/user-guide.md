@@ -214,6 +214,14 @@ The device page has three read-only entities in its Diagnostic section that desc
 
 ---
 
+## Retrying a failed fetch
+
+When ENTSO-E does not answer, the integration waits longer and longer between attempts: 15 minutes, 30 minutes, 1 hour, and then every 2 hours for as long as the outage lasts. It returns to the normal schedule after the first successful request.
+
+To try again without waiting, press **Retry price fetch** on the device page. In an automation, use the `button.press` action on that entity. The button makes a request straight away, even inside the waiting period. If that request fails too, the next automatic attempt is counted from the press. When today's and tomorrow's prices are both already loaded there is nothing to fetch, and pressing it changes nothing.
+
+---
+
 ## Editing VAT and transfer fee from the device page
 
 The device page has a **VAT** and a **Transfer fee** control in its Configuration section. Type a new value and prices update immediately, with no reload and no new request to ENTSO-E. The read-only VAT and Transfer fee sensors under Diagnostic show the same values.
@@ -254,7 +262,7 @@ The `device_id` can be found in **Settings → Devices & Services → \<your dev
 
 ## Known limitations
 
-- **Tomorrow prices are unavailable until ENTSO-E publishes them** — typically between 13:00 and 15:00 CET. Before that window all tomorrow sensors correctly show *Unknown*. The integration polls every 15 minutes after 13:00 local time to minimise the delay.
+- **Tomorrow prices are unavailable until ENTSO-E publishes them** — typically between 13:00 and 15:00 CET. Before that window all tomorrow sensors correctly show *Unknown*. The integration polls every 15 minutes after 13:00 local time to minimise the delay, and slows down while ENTSO-E is failing (see [Retrying a failed fetch](#retrying-a-failed-fetch)).
 - **Price granularity depends on the area** — ENTSO-E may publish 15-minute, 30-minute, or 60-minute slots depending on the bidding zone. All resolutions are normalised internally to 15-minute slots.
 - **Historical prices are not exposed** — only today's and tomorrow's prices are available. Past prices are not stored or surfaced as sensor state.
 - **ENTSO-E API rate limits** — the free API key has undocumented rate limits. Running many integration instances for different areas from the same key may eventually be rate-limited.

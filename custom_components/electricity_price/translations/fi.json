@@ -131,6 +131,11 @@
         "name": "Huomisen hinnat saatavilla"
       }
     },
+    "button": {
+      "retry_fetch": {
+        "name": "Yritä hintojen hakua uudelleen"
+      }
+    },
     "number": {
       "vat": {
         "name": "ALV"

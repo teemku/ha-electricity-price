@@ -28,6 +28,9 @@ coordinator.py ─────────────────────�
     │                          the coordinator's fetch errors) and tomorrow's
     │                          prices available.
     │
+    ├──► button.py             Retry price fetch button that forces a refresh
+    │                          through async_retry_now.
+    │
     ├──► number.py             2 editable config entities (VAT, transfer fee)
     │                          that call async_update_vat_fee.
     │

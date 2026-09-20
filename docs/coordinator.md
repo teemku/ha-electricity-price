@@ -60,6 +60,16 @@ When no raw prices are cached yet (for example right after a restart while the A
 
 Called by the `set_vat` / `set_transfer_fee` services and by the VAT and transfer fee number entities.
 
+### Retry backoff
+
+Consecutive failed fetches lengthen the wait before the next request to ENTSO-E: 15 minutes after the first failure, then 30 minutes, 1 hour, and 2 hours from there on, which is the cap. Every path that can cause a request respects the window, both the hourly refresh and the slot-boundary refresh after 13:00. A refresh that would make no request, because the prices come from the on-disk store or the in-memory cache, runs as usual.
+
+A failed fetch for today, or a connection failure for tomorrow, counts as a failure. A successful request resets the count, and so does an answer that tomorrow's prices are not published yet. Authentication failures are not part of the backoff. When a refresh is skipped because of the window it leaves `fetch_errors` untouched, and it fails the update if today's fetch was the one failing, so the entities keep their state and no recovery is reported. The count and the window are in memory only, so the first refresh after a reload is made immediately.
+
+### `async_retry_now()`
+
+Runs a refresh that ignores the backoff window. It is called by the retry button. The result is handled like any other refresh: success resets the backoff, and a failure counts as one more failure and starts the next window from that moment. It does nothing while a refresh is already running. Because it runs the normal update, it makes no request when both today's and tomorrow's prices are already complete.
+
 ### On-disk storage
 
 Managed by `_Store` (a `homeassistant.helpers.storage.Store` subclass). Stores a dict:

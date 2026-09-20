@@ -14,6 +14,11 @@
         }
       }
     },
+    "button": {
+      "retry_fetch": {
+        "default": "mdi:cloud-refresh-outline"
+      }
+    },
     "sensor": {
       "current_price": {
         "default": "mdi:lightning-bolt"
