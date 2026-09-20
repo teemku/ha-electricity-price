@@ -123,6 +123,14 @@
     }
   },
   "entity": {
+    "binary_sensor": {
+      "fetch_failing": {
+        "name": "Price Fetch Failing"
+      },
+      "tomorrow_available": {
+        "name": "Tomorrow Prices Available"
+      }
+    },
     "number": {
       "vat": {
         "name": "VAT"
@@ -170,6 +178,9 @@
       },
       "resolution": {
         "name": "Resolution"
+      },
+      "last_successful_fetch": {
+        "name": "Last Successful Fetch"
       }
     }
   }

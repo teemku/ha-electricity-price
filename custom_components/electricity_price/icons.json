@@ -1,5 +1,19 @@
 {
   "entity": {
+    "binary_sensor": {
+      "fetch_failing": {
+        "default": "mdi:cloud-check-outline",
+        "state": {
+          "on": "mdi:cloud-alert-outline"
+        }
+      },
+      "tomorrow_available": {
+        "default": "mdi:calendar-clock-outline",
+        "state": {
+          "on": "mdi:calendar-check-outline"
+        }
+      }
+    },
     "sensor": {
       "current_price": {
         "default": "mdi:lightning-bolt"
@@ -39,6 +53,9 @@
       },
       "resolution": {
         "default": "mdi:chart-timeline-variant"
+      },
+      "last_successful_fetch": {
+        "default": "mdi:cloud-download-outline"
       }
     },
     "number": {

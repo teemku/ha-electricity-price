@@ -6,10 +6,13 @@ from unittest.mock import MagicMock
 import pytest
 
 import homeassistant.util.dt as dt_mock
+from homeassistant.components.sensor import SensorDeviceClass
+from homeassistant.const import EntityCategory
 from custom_components.electricity_price.const import DEFAULT_TRANSFER_FEE, DEFAULT_VAT
 from custom_components.electricity_price.sensor import (
     CheapestTimeSensor,
     CurrentPriceSensor,
+    LastSuccessfulFetchSensor,
     NextPriceSensor,
     PriceLevelSensor,
     TodayAverageSensor,
@@ -385,3 +388,39 @@ class TestTransferFeeSensor:
         assert sensor.native_value == pytest.approx(2.0)
         sensor.coordinator.entry.options["transfer_fee"] = 4.0
         assert sensor.native_value == pytest.approx(4.0)
+
+
+class TestLastSuccessfulFetchSensor:
+    def _sensor(self, last_success=None, update_succeeded=True):
+        coord = MagicMock()
+        coord.last_success = last_success
+        coord.last_update_success = update_succeeded
+        entry = MagicMock()
+        entry.entry_id = "test_entry"
+        return LastSuccessfulFetchSensor(coord, entry)
+
+    def test_returns_the_time_of_the_last_successful_fetch(self):
+        moment = datetime.datetime(2026, 3, 29, 9, 30, tzinfo=UTC)
+        assert self._sensor(last_success=moment).native_value == moment
+
+    def test_unknown_before_the_first_successful_fetch(self):
+        assert self._sensor(last_success=None).native_value is None
+
+    def test_reflects_a_newer_fetch(self):
+        sensor = self._sensor(last_success=datetime.datetime(2026, 3, 29, 9, 30, tzinfo=UTC))
+        newer = datetime.datetime(2026, 3, 29, 10, 30, tzinfo=UTC)
+        sensor.coordinator.last_success = newer
+        assert sensor.native_value == newer
+
+    def test_stays_available_when_the_last_update_failed(self):
+        assert self._sensor(update_succeeded=False).available is True
+
+    def test_is_a_diagnostic_timestamp_sensor(self):
+        sensor = self._sensor()
+        assert sensor._attr_device_class == SensorDeviceClass.TIMESTAMP
+        assert sensor._attr_entity_category == EntityCategory.DIAGNOSTIC
+
+    def test_unique_id_and_translation_key(self):
+        sensor = self._sensor()
+        assert sensor._attr_unique_id == "test_entry_last_successful_fetch"
+        assert sensor._attr_translation_key == "last_successful_fetch"

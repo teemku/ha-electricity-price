@@ -90,6 +90,16 @@ ha_sensor_mod = _mod(
     SensorEntity=object,
 )
 
+class _BinarySensorDeviceClass(str, Enum):
+    PROBLEM = "problem"
+
+
+ha_binary_sensor_mod = _mod(
+    "homeassistant.components.binary_sensor",
+    BinarySensorDeviceClass=_BinarySensorDeviceClass,
+    BinarySensorEntity=object,
+)
+
 class _NumberMode(str, Enum):
     BOX = "box"
 
@@ -209,6 +219,7 @@ _MOCKS = {
     "homeassistant.core": ha_core,
     "homeassistant.const": ha_const,
     "homeassistant.components": ha_components,
+    "homeassistant.components.binary_sensor": ha_binary_sensor_mod,
     "homeassistant.components.sensor": ha_sensor_mod,
     "homeassistant.components.number": ha_number_mod,
     "homeassistant.components.device_automation": ha_da,

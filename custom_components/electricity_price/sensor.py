@@ -49,6 +49,7 @@ async def async_setup_entry(
             VatSensor(coordinator, entry),
             TransferFeeSensor(coordinator, entry),
             ResolutionSensor(coordinator, entry),
+            LastSuccessfulFetchSensor(coordinator, entry),
         ]
     )
 
@@ -292,6 +293,26 @@ class ResolutionSensor(_PriceSensor):
     @property
     def native_value(self) -> int:
         return self._data.resolution_minutes
+
+
+class LastSuccessfulFetchSensor(_PriceSensor):
+    """Time of the last request to ENTSO-E that completed successfully."""
+
+    _attr_device_class = SensorDeviceClass.TIMESTAMP
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+
+    def __init__(self, coordinator: PriceCoordinator, entry: ConfigEntry) -> None:
+        super().__init__(coordinator, entry, "last_successful_fetch")
+
+    @property
+    def available(self) -> bool:
+        # The coordinator marks its entities unavailable after a failed update,
+        # which is exactly when this value is needed.
+        return True
+
+    @property
+    def native_value(self) -> datetime | None:
+        return cast("datetime | None", self.coordinator.last_success)
 
 
 def _utc_key(utc_dt: datetime) -> str:

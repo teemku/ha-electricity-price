@@ -123,6 +123,14 @@
     }
   },
   "entity": {
+    "binary_sensor": {
+      "fetch_failing": {
+        "name": "Hintojen haku epäonnistuu"
+      },
+      "tomorrow_available": {
+        "name": "Huomisen hinnat saatavilla"
+      }
+    },
     "number": {
       "vat": {
         "name": "ALV"
@@ -170,6 +178,9 @@
       },
       "resolution": {
         "name": "Resoluutio"
+      },
+      "last_successful_fetch": {
+        "name": "Viimeisin onnistunut haku"
       }
     }
   }
