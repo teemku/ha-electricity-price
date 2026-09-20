@@ -3,7 +3,7 @@ title: "API retry backoff"
 date: 2026-09-20
 type: feat          # feat | fix | refactor | chore
 area: "coordinator"
-status: ready       # draft | ready | implemented
+status: implemented       # draft | ready | implemented
 refs: []
 ---
 
